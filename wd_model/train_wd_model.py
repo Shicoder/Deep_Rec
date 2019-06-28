@@ -37,10 +37,10 @@ parser.add_argument(
     '--test_data', type=str, default='hdfs://your_path/test/part*',
     help='Path to the test data.')
 parser.add_argument(
-    '--servable_model_dir', type=str, default='hdfs://your_path/youzan_exported',
+    '--servable_model_dir', type=str, default='hdfs://your_path/exported',
     help='Base directory for the eported model.')
 parser.add_argument(
-    '--profile_dir', type=str, default='hdfs://your_path/youzan_profile',
+    '--profile_dir', type=str, default='hdfs://your_path/profile',
     help='Base directory for the eported model.')
 def load(file_name):
     with open(file_name) as json_file:
