@@ -10,7 +10,11 @@
 但是离线测试发现 Feature_columns存在很大rt问题，差不多消耗了整个前向过程的1/3。对于小企业来说，serving性能没有做到最优，只能从模型端减少性能上的消耗。  
   
 所以这里我自己实现了一个wide&deep模型。支持连续特征，类别特征，embedding特征，特征交叉等常见操作，也支持list特征以及各种数据类型。能很方便的将生成的模型export，以及支持分布式训练。  
-修改模型的核心代码可以很方便的扩展到其他DNN模型，现在暂时只支持Wide，DNN，WD三类。      
+修改模型的核心代码可以很方便的扩展到其他DNN模型，现在暂时只支持Wide，DNN，WD三类。   
+
+#### essm_model/
+实现essm模型，参考了实现代码[essm](https://github.com/yangxudong/deeplearning/tree/master/esmm)  
+
 ###### 运行方式  
 - 配置config/inputs.json，配置好输入的字段，以及需要做的操作，以及相对应的操作  
 - 配置好对应的路径  
@@ -18,3 +22,6 @@
 
 ##### config/  
 存放模型配置文件  
+
+#### utils/
+
