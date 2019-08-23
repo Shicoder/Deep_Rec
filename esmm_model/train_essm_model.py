@@ -36,8 +36,8 @@ def model_fn(features,
              labels,
              mode,
              params):
-  essm_model = esmm(features,labels,params,mode)
-  return essm_model
+  esmm_model = esmm(features,labels,params,mode)
+  return esmm_model
 
 def get_feature_spec():
     feature_map = {}
