@@ -130,7 +130,7 @@ def _MY_HEAD(mode,
     train_op = dnn_optimizer.minimize(loss, global_step=tf.train.get_global_step())
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
-def essm(features,
+def esmm(features,
          labels,
          params,
          mode):

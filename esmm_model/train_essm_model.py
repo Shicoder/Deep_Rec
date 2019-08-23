@@ -2,7 +2,7 @@
 import sys
 import tensorflow as tf
 import json
-from essm_model import essm
+from esmm_model import esmm
 from utils.tf_utils import load_json,GET_COLUMNS
 import argparse
 
@@ -36,7 +36,7 @@ def model_fn(features,
              labels,
              mode,
              params):
-  essm_model = essm(features,labels,params,mode)
+  essm_model = esmm(features,labels,params,mode)
   return essm_model
 
 def get_feature_spec():
