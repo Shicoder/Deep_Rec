@@ -8,7 +8,7 @@ from tensorflow.python.ops import init_ops
 from tensorflow.python.ops import variable_scope
 import six
 ###############
-def dnn_model(features=None,
+def embedding_layer(features=None,
               params=None):
     ###############
 
@@ -73,19 +73,24 @@ def dnn_model(features=None,
             curr_layer = tf.concat(deep_sum, 1, name="deep_inputs_layer")
 
             # Build the DNN
+    ####################################
+    return curr_layer
 
-            for index, layer_size in enumerate(_HIDDEN_UNITS):
-                curr_layer = tf.layers.dense(
-                    curr_layer,
-                    layer_size,
-                    activation=tf.nn.relu,
-                    kernel_initializer=init_ops.glorot_uniform_initializer(),
-                    name="deep_hidden_layer" + str(index)
-                )
-            deep_logits = tf.layers.dense(curr_layer, units=1, name="deep_logits")
+def dnn_model(curr_layer,_HIDDEN_UNITS):
+    for index, layer_size in enumerate(_HIDDEN_UNITS):
+        curr_layer = tf.layers.dense(
+            curr_layer,
+            layer_size,
+            activation=tf.nn.relu,
+            # This initializer prevents variance from exploding or vanishing when
+            # compounded through different sized layers.
+            # kernel_initializer=tf.contrib.layers.variance_scaling_initializer(),
+            kernel_initializer=init_ops.glorot_uniform_initializer(),
+            name="deep_hidden_layer" + str(index)
+        )
+    deep_logits = tf.layers.dense(curr_layer, units=1, name="deep_logits")
     ####################################
     return deep_logits
-
 def _MY_HEAD(mode,
              label_ctr,
              label_cvr,
@@ -111,6 +116,10 @@ def _MY_HEAD(mode,
     ctr_loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=label_ctr,logits=ctr_logits),name='ctr_loss')
     cvr_loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=label_cvr,logits=cvr_logits),name='cvr_loss')
     loss = tf.add(ctr_loss,cvr_loss,name='ctcvr_loss')
+
+    # class_ids = math_ops.argmax(
+    #     two_class_logits, axis=-1, name=pred_keys.CLASS_IDS)
+    # class_ids = array_ops.expand_dims(class_ids, axis=-1)
     ctr_accuracy = tf.metrics.accuracy(labels=label_ctr,
                                        predictions=tf.to_float(tf.greater_equal(ctr_prob, 0.5)))
     cvr_accuracy = tf.metrics.accuracy(labels=label_cvr, predictions=tf.to_float(tf.greater_equal(cvr_prob, 0.5)))
@@ -136,20 +145,27 @@ def esmm(features,
          mode):
 
     dnn_learning_rate = params['_DNN_LEARNING_RATE']
+    hidden_units = params['_HIDDEN_UNITS']
     label_ctr = tf.reshape(labels['click'],(-1,1))
     label_cvr = tf.reshape(labels['buy'],(-1,1))
+
+    with variable_scope.variable_scope(
+            'EMBEDDING_Module',
+            values=tuple(six.itervalues(features)),
+    ) as scope:
+        EmbeddingLayer = embedding_layer(features,params)
 
     with variable_scope.variable_scope(
             'CTR_Module',
             values=tuple(six.itervalues(features)),
     ) as scope:
-        ctr_logits = dnn_model(features,params)
+        ctr_logits = dnn_model(EmbeddingLayer,hidden_units)
         ctr_prob = tf.sigmoid(ctr_logits)
     with variable_scope.variable_scope(
             'CVR_Module',
             values=tuple(six.itervalues(features)),
     ) as scope:
-        cvr_logits = dnn_model(features,params)
+        cvr_logits = dnn_model(EmbeddingLayer,hidden_units)
         cvr_prob = tf.sigmoid(cvr_logits)
 
     ctcvr_prob = tf.multiply(ctr_prob,cvr_prob,name='ctrcvr_prob')
