@@ -15,7 +15,8 @@
 #### esmm_model/
 实现esmm模型，参考了实现代码[esmm](https://github.com/yangxudong/deeplearning/tree/master/esmm)  
 ##### esmm_v2  
-  便于迭代模型，对之前脚本进行了优化，对输入特征，特征工程，模型输出进行封装.模型更新迭代的时候可以针对性的修改指定模块，也方便后续模型的切换。  
+  便于迭代模型，以及之前脚本代码写的有点乱，所以针对性的进行了优化。这里对输入特征，特征工程，核心模型，模型输出分别进行了封装。  
+  模型更新迭代的时候可以针对性的修改指定模块，也方便后续模型的切换，特征的迭代，以及输入数据在输入，特征工程，保存模型，线上服务各个模块的统一配置。  
   参考:   
   [x-deeplearning的esmm实现](https://github.com/alibaba/x-deeplearning/tree/master/xdl-algorithm-solution)   
   [脚本配置方式](https://github.com/zhaoxin4data/atlas/tree/master/deeplearning/uciflowwd_train/config)  
