@@ -14,7 +14,13 @@
 
 #### esmm_model/
 实现esmm模型，参考了实现代码[esmm](https://github.com/yangxudong/deeplearning/tree/master/esmm)  
-
+##### esmm_v2  
+  便于迭代模型，对之前脚本进行了优化，对输入特征，特征工程，模型输出进行封装.模型更新迭代的时候可以针对性的修改指定模块，也方便后续模型的切换。  
+  参考:   
+  [x-deeplearning的esmm实现](https://github.com/alibaba/x-deeplearning/tree/master/xdl-algorithm-solution)   
+  [脚本配置方式](https://github.com/zhaoxin4data/atlas/tree/master/deeplearning/uciflowwd_train/config)  
+  [esmm实现](https://github.com/yangxudong/deeplearning/tree/master/esmm)   
+  [tensorflow自带的分类器](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/python/estimator/canned)
 ###### 运行方式  
 - 配置config/inputs.json，配置好输入的字段，以及需要做的操作，以及相对应的操作  
 - 配置好对应的路径  
