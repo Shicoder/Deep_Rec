@@ -8,6 +8,7 @@ from tensorflow.python.ops import string_ops,array_ops,math_ops
 from tensorflow.python.saved_model import signature_constants
 from tensorflow.python.estimator.export import export_output
 from transform_feature import FeatureBuilder
+from tensorflow.python.ops import init_ops
 from alg_utils.utils_tf import PReLU,get_input_schema_spec
 import random
 class esmm(object):
@@ -17,6 +18,11 @@ class esmm(object):
         self.params = params
         self.mode = mode
         self.model_features = params["FEATURES_DICT"]
+
+        self.din_user_goods_seq = features["seq_goods_id_seq"]
+        self.din_target_goods_id = features["goods_id"]
+        self.din_user_class_seq = features["class_seq"]
+        self.din_target_class_id = features["class_id"]
 
     def get_feature_columns(self):
         Feature_Columns = FeatureBuilder(self.model_features)
@@ -36,8 +42,59 @@ class esmm(object):
             scores=scores,
             # `ClassificationOutput` requires string classes.
             classes=export_output_classes)
-    def Din_model(self):
-        '''din model to do'''
+
+    def embedding_table(self,bucket_size,embedding_size,col):
+        embeddings = tf.get_variable(
+            shape=[bucket_size, embedding_size],
+            initializer=init_ops.glorot_uniform_initializer(),
+            dtype=tf.float32,
+            name="deep_embedding_" + col)
+        return embeddings
+
+    def fc_net(self,net):
+        '''MLP'''
+        for units in self.params['HIDDEN_UNITS']:
+            net = tf.layers.dense(net, units=units, activation=PReLU)
+            if 'DROPOUT_RATE' in self.params and self.params['DROPOUT_RATE'] > 0.0:
+                net = tf.layers.dropout(net, self.params['DROPOUT_RATE'], training=(self.mode == tf.estimator.ModeKeys.TRAIN))
+        logits = tf.layers.dense(net, 1, activation=None)
+        return logits
+    def attention_layer(self, seq_ids, tid, id_type):
+        with tf.variable_scope("attention_" + id_type):
+            embedding_size = 16
+            bucket_size = 10000000
+            embeddings = self.embedding_table(bucket_size,embedding_size,id_type)
+            seq_emb = tf.nn.embedding_lookup(embeddings, seq_ids)  # shape(batch_size, max_seq_len, embedding_size)
+            u_emb = tf.reshape(seq_emb, shape=[-1, embedding_size])
+
+            tid_emb = tf.nn.embedding_lookup(embeddings, tid)  # shape(batch_size, embedding_size)
+            max_seq_len = tf.shape(seq_ids)[1]  # padded_dim
+            a_emb = tf.reshape(tf.tile(tid_emb, [1, max_seq_len]), shape=[-1, embedding_size])
+
+            net = tf.concat([u_emb, a_emb,u_emb - a_emb,u_emb * a_emb], axis=1)
+            attention_hidden_units = [50,25]
+            for units in attention_hidden_units:
+                net = tf.layers.dense(net, units=units, activation=tf.nn.relu)
+            att_wgt = tf.layers.dense(net, units=1, activation=tf.sigmoid)
+            att_wgt = tf.reshape(att_wgt, shape=[-1, max_seq_len, 1], name="weight")
+            wgt_emb = tf.multiply(seq_emb, att_wgt)  # shape(batch_size, max_seq_len, embedding_size)
+            # masks = tf.sequence_mask(seq_len, max_seq_len, dtype=tf.float32)
+            masks = tf.expand_dims(tf.cast(seq_ids >= 0, tf.float32), axis=-1)
+            att_emb = tf.reduce_sum(tf.multiply(wgt_emb, masks), 1, name="weighted_embedding")
+            return att_emb, tid_emb
+
+    def Din_model(self,feature_columns):
+        # feature_columns not include attention feature
+        common_layer = tf.feature_column.input_layer(self.features, feature_columns)
+        din_user_seq = tf.string_to_hash_bucket_fast(self.din_user_goods_seq)
+        din_target_id = tf.string_to_hash_bucket_fast(self.din_target_goods_id)
+        din_useq_embedding,din_tid_embedding = self.attention_layer(din_user_seq,din_target_id,id_type="click_seq")
+        din_net = tf.concat([common_layer,din_useq_embedding,din_tid_embedding],axis=1)
+        logits = self.fc_net(din_net)
+        return logits
+
+    def dcn_model(self):
+        '''dcn model '''
         pass
 
     def Dnn_Model(self,feature_columns):
@@ -57,9 +114,11 @@ class esmm(object):
             feature_columns = self.get_feature_columns()
             print("feature_columns:", feature_columns)
         with tf.variable_scope('ctr_model'):
-            ctr_logits = self.Dnn_Model(feature_columns)
+            ctr_logits = self.Din_model(feature_columns)
+            # ctr_logits = self.Dnn_Model(feature_columns)
         with tf.variable_scope('cvr_model'):
-            cvr_logits = self.Dnn_Model(feature_columns)
+            cvr_logits = self.Din_model(feature_columns)
+            # cvr_logits = self.Dnn_Model(feature_columns)
 
         ctr_predictions = tf.sigmoid(ctr_logits, name="CTR")
         cvr_predictions = tf.sigmoid(cvr_logits, name="CVR")
