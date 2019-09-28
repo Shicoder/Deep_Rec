@@ -53,6 +53,7 @@ class esmm(object):
 
     def fc_net(self,net):
         '''MLP'''
+        net = tf.layers.batch_normalization(inputs=net, name='bn1', training=True)
         for units in self.params['HIDDEN_UNITS']:
             net = tf.layers.dense(net, units=units, activation=PReLU)
             if 'DROPOUT_RATE' in self.params and self.params['DROPOUT_RATE'] > 0.0:
@@ -101,11 +102,7 @@ class esmm(object):
         '''dnn model'''
         net = tf.feature_column.input_layer(self.features, feature_columns)
         # Build the hidden layers, sized according to the 'hidden_units' param.
-        for units in self.params['HIDDEN_UNITS']:
-            net = tf.layers.dense(net, units=units, activation=PReLU)
-            if 'DROPOUT_RATE' in self.params and self.params['DROPOUT_RATE'] > 0.0:
-                net = tf.layers.dropout(net, self.params['DROPOUT_RATE'], training=(self.mode == tf.estimator.ModeKeys.TRAIN))
-        logits = tf.layers.dense(net, 1, activation=None)
+        logits = self.fc_net(net)
         return logits
 
     def Build_EstimatorSpec(self):
@@ -185,7 +182,9 @@ class esmm(object):
         # Create training op.
         assert self.mode == tf.estimator.ModeKeys.TRAIN
         optimizer = tf.train.AdagradOptimizer(learning_rate=self.params['LEARNING_RATE'])
-        train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
         return tf.estimator.EstimatorSpec(self.mode, loss=loss, train_op=train_op)
 
 
