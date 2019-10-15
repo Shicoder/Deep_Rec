@@ -1,0 +1,753 @@
+{
+    "schema": {
+        "yz_uid": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "1"
+        },
+        "kdt_id": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "1"
+        },
+        "goods_id": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "1"
+        },
+        "context_scene": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "plugin"
+        },
+        "g_ai_class1": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "g_ai_class2": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": ""
+        },
+        "g_new_ai_class1_id": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "g_new_ai_class2_id": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "g_goods_price_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_created_time_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_title_length_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_product": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "g_age": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 35
+        },
+        "g_male_fans": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_female_fans": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_male_fans_rate": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "g_paid_order_cnt_30day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_cnt_60day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_cnt_90day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_cnt_120day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_cnt_150day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_cnt_180day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_goods_cnt_30day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_goods_cnt_60day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_goods_cnt_90day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_goods_cnt_120day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_goods_cnt_150day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_goods_cnt_180day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_amt_30day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_amt_60day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_amt_90day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_amt_120day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_amt_150day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_amt_180day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_paid_order_uv_180day": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "g_search_words_seq": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": [
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1"
+            ],
+            "is_seq": true,
+            "value_shape": 6
+        },
+        "g_search_click_cnt": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_age": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 35
+        },
+        "u_sc_gender": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": -1
+        },
+        "u_paid_goods_cnt_30day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_paid_goods_cnt_90day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_paid_goods_cnt_180day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_paid_order_amt_30day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_paid_order_amt_90day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_paid_order_amt_180day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_30_amount_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_90_amount_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_180_amount_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_gender": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_search_words_2_seq": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": [
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1"
+            ],
+            "is_seq": true,
+            "value_shape": 5
+        },
+        "u_search_num_2": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_search_words_15_seq": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": [
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1"
+            ],
+            "is_seq": true,
+            "value_shape": 6
+        },
+        "u_search_num_15": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "u_ai_class2_7day": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "u_ai_class2_30day": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "u_action_week": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": -1
+        },
+        "u_price_sensity": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 4
+        },
+        "u_consuming_ability": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 3
+        },
+        "u_has_car": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 2
+        },
+        "u_has_child": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 2
+        },
+        "u_summon_ability": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 2
+        },
+        "u_influence": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 2
+        },
+        "u_share_mood": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 2
+        },
+        "u_consuming_class_seq": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": [
+                "-1",
+                "-1",
+                "-1",
+                "-1"
+            ],
+            "is_seq": true,
+            "value_shape": 4
+        },
+        "u_style_seq": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": [
+                "-1",
+                "-1",
+                "-1",
+                "-1"
+            ],
+            "is_seq": true,
+            "value_shape": 4
+        },
+        "u_festival": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 5
+        },
+        "u_trend": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 5
+        },
+        "u_traval": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 2
+        },
+        "u_traval_freq": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 3
+        },
+        "k_team_type": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "k_cat_id": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "k_created_time_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_certificate_time_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_wx_bind_time_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_first_goods_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_first_feature_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_first_trade_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_open_status": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "1"
+        },
+        "k_is_supplier": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_is_seller": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_login_pv_30day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_login_pv_60day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_login_pv_90day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_login_pv_120day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_login_pv_150day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_login_pv_180day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_total_fans_cnt_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_store_cnt": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_self_fetch_cnt": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_on_shelf_goods_cnt_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_feature_cnt_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_admin_cnt": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_last_pay_time_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_update_time_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_last_login_time": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_paid_order_uv_360day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_paid_order_cnt_360day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_paid_goods_cnt_360day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_plugin_cost_amt_360day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_plugin_cnt_360day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_plugin_paid_cnt_360day_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_ai_class2_id_top1": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "k_paid_order_cnt_90day_top1_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_ai_class2_id_top2": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "-1"
+        },
+        "k_paid_order_cnt_90day_top2_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_30_view_num_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_30_click_num_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_30_order_num_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "k_30_order_amount_o": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "score_cart_cf_user": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_view_cf_item": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_cart_cf_item": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_view_gender_hot": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_order_age_hot": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_order_gender_hot": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_view_age_hot": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_cat_fim": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_view_expand": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_cart_expand": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_search": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_cf_item": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_cf_user": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_order_fim": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_cart": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_visit": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_seq_embedding": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_view_cf_item": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_cart_cf_item": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_product": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_view_fpgrowth": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_cart_fpgrowth": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_order_fpgrowth": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_fp_order": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "sim_cf_item": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "score_shop_7hot": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "rank_shop_7hot": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 100
+        },
+        "score_shop_innerhot": {
+            "feature_type": "fixed_len",
+            "value_type": "double",
+            "default_value": 0.0
+        },
+        "label_click": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "label_buy": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 0
+        },
+        "seq_goods_id_seq": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": [
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1"
+            ],
+            "is_seq": true,
+            "value_shape": 6
+        }
+    }
+}

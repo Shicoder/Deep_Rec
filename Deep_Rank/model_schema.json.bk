@@ -1,0 +1,28 @@
+{
+    "schema": {
+        "id": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": "1"
+        },
+        "class": {
+            "feature_type": "fixed_len",
+            "value_type": "int",
+            "default_value": 1
+        },
+        "words_list": {
+            "feature_type": "fixed_len",
+            "value_type": "string",
+            "default_value": [
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1",
+                "-1"
+            ],
+            "is_seq": true,
+            "value_shape": 6
+        }
+    }
+}
