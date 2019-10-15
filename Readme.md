@@ -1,4 +1,7 @@
 ## 本库用于存放推荐相关算法代码和文档
+#### DeepRank   
+抽象了一套简洁的代码；并会逐步实现Wide_and_Deep,DIN,ESMM,DeepFM,DCN等经典网络。   
+
 #### tfrecords/
 存放tfrecords文件的生成和使用代码
 利用spark读取数据保存成tfrecods这里提供两个思路。  
@@ -33,7 +36,4 @@
 #### utils/
 
 
-#### Interest Network 
-parse_tfrecords 中定义好pop出的标签名字
-序列特征不出现在model_feature.json中，单独解析在model类中；
 
