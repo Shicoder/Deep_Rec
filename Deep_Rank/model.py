@@ -63,16 +63,44 @@ class BaseModel(object):
             dtype=tf.float32,
             name="deep_embedding_" + col)
         return embeddings
+    def get_activation(self,activation):
+        if activation==None:
+            act = None
+        elif activation == 'prelu':
+            act = PReLU
+        elif activation == 'relu':
+            act = tf.nn.relu
+        else:
+            act = tf.nn.sigmoid
+        return act
 
-    def fc_net(self,net):
+    def fc_net(self,net,last_num=1,activation=None):
         '''MLP'''
+
+        act  = self.get_activation(activation)
         net = tf.layers.batch_normalization(inputs=net, name='bn1', training=True)
         for units in self.params['HIDDEN_UNITS']:
             net = tf.layers.dense(net, units=units, activation=PReLU)
             if 'DROPOUT_RATE' in self.params and self.params['DROPOUT_RATE'] > 0.0:
                 net = tf.layers.dropout(net, self.params['DROPOUT_RATE'], training=(self.mode == tf.estimator.ModeKeys.TRAIN))
-        logits = tf.layers.dense(net, 1, activation=None)
+        logits = tf.layers.dense(net, last_num, activation=act)
         return logits
+
+    def cross_layer(self,x0,x,name):
+        with tf.variable_scope(name):
+            input_dim = x0.get_shape().as_list()[1]
+            w = tf.get_variable("weight", [input_dim], initializer=tf.truncated_normal_initializer(stddev=0.01))
+            b = tf.get_variable("bias", [input_dim], initializer=tf.truncated_normal_initializer(stddev=0.01))
+            xb = tf.tensordot(tf.reshape(x, [-1, 1, input_dim]), w, 1)
+            return x0 * xb + b + x
+
+    def cross_net(self,net,cross_layer_num):
+        '''cross network'''
+        x0 = net
+        for i in range(cross_layer_num):
+            net = self.cross_layer(x0,net,'cross_{}'.format(i))
+        return net
+
 
     def build_estimator_spec(self):
         '''Build EstimatorSpec'''
@@ -119,9 +147,57 @@ class DNN(BaseModel):
         '''DNN model'''
         with tf.variable_scope('fc_net'):
             net = tf.feature_column.input_layer(self.features, self.Deep_Features)
-            logits = self.fc_net(net)
+            logits = self.fc_net(net,1)
         return logits
 
+
+class DCN(BaseModel):
+    '''Deep cross network'''
+    def __init__(self, features, labels, params, mode):
+        super(DCN,self).__init__(features, labels, params, mode)
+        self.cross_layer_num = params["CROSS_LAYER_NUM"]
+        with tf.variable_scope('DCN_module'):
+            self.logits = self.dcn()
+
+    def dcn(self):
+        '''dcn model'''
+        embedding_layer = tf.feature_column.input_layer(self.features, self.Deep_Features)
+        with tf.variable_scope('dcn'):
+            mlp_layer = self.fc_net(embedding_layer,8,'relu')
+            cross_layer = self.cross_net(embedding_layer,self.cross_layer_num)
+        logits = tf.concat([mlp_layer, cross_layer], 1)
+        return logits
+
+class DeepFM(BaseModel):
+    def __init__(self, features, labels, params, mode):
+        super(DeepFM,self).__init__(features, labels, params, mode)
+        self.cross_layer_num = params["CROSS_LAYER_NUM"]
+        with tf.variable_scope('DCN_module'):
+            self.logits = self.deepfm()
+    def deepfm(self):
+        embedding_layer = tf.feature_column.input_layer(self.features, self.Deep_Features)
+        mlp_layer = self.fc_net(embedding_layer,8,'relu')
+        fm_layer = self.fm_layer(embedding_layer)
+        logits = tf.concat([mlp_layer, fm_layer], 1)
+        return logits
+
+    def fm_layer(self,features):
+        """FM model .
+        """
+        flat_val = tf.feature_column.input_layer(self.features, self.Deep_Features)\
+        # shape(batch_size, column_num * embedding_size)
+        vals = tf.reshape(flat_val, (-1, column_num, dimension), "interaction_embeddings")
+        # sum-square-part
+        summed_val = math_ops.reduce_sum(vals, 1)
+        summed_square_val = math_ops.square(summed_val)
+
+        # squre-sum-part...2
+        squared_val = math_ops.square(vals)
+        squared_sum_val = math_ops.reduce_sum(squared_val, 1)
+
+        # second order...3
+        logits = math_ops.reduce_sum(0.5 * math_ops.subtract(summed_square_val, squared_sum_val), -1)
+        return logits
 
 class WD_Model(BaseModel):
     '''wide and deep model'''
@@ -139,7 +215,7 @@ class WD_Model(BaseModel):
             ) as scope:
                 dnn_absolute_scope = scope.name
                 net = tf.feature_column.input_layer(self.features, self.Deep_Features)
-                dnn_logits = self.fc_net(net)
+                dnn_logits = self.fc_net(net,1)
             with tf.variable_scope(
                     'linear_model',
                     values=tuple(six.itervalues(self.features)),
@@ -223,7 +299,7 @@ class DIN(BaseModel):
                                                                      self.goods_attention_hidden_units,
                                                                      id_type="click_seq")
         din_net = tf.concat([common_layer, din_useq_embedding, din_tid_embedding], axis=1)
-        logits = self.fc_net(din_net)
+        logits = self.fc_net(din_net,1)
         return logits
 
 class DIEN(BaseModel):
@@ -374,7 +450,7 @@ class DIEN(BaseModel):
         # self.uid
         item_his_eb_sum = tf.reduce_sum(u_his_emb,1)
         inp = tf.concat([common_layer, tid_emb, item_his_eb_sum, tid_emb * item_his_eb_sum, final_state2], 1)
-        logits = self.fc_net(inp)
+        logits = self.fc_net(inp,1)
         return logits
 
     def build_estimator_spec(self):
@@ -436,20 +512,57 @@ class DIEN(BaseModel):
             train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
         return tf.estimator.EstimatorSpec(self.mode, loss=loss, train_op=train_op)
 
-class BST(BaseModel):
-    pass
 
 class ESMM(BaseModel):
+    def __init__(self, features, labels, params, mode):
+        super(ESMM,self).__init__(features, labels, params, mode)
+        # seq feature,
+        self.din_user_goods_seq = features["seq_goods_id_seq"]
+        self.din_target_goods_id = features["goods_id"]
+        self.goods_embedding_size = 16
+        self.goods_bucket_size = 1000
+        self.goods_attention_hidden_units = [50, 25]
+
+        self.uid = None
+
+        self.GRU_HIDDEN_SIZE = 8
+        self.ATTENTION_SIZE = 8
+        self.sequence_length = 6
+
+        # self.din_user_class_seq = features["class_seq"]
+        # self.din_target_class_id = features["class_id"]
+
+
+        self.logits = self.esmm()
+
+    def esmm(self):
+        with tf.variable_scope('embedding_module'):
+            embedding_layer = tf.feature_column.input_layer(self.features, self.Deep_Features)
+        with tf.variable_scope('ctr_model'):
+            ctr_logits = self.fc_net(embedding_layer)
+            # ctr_logits = DIN(self.features, self.labels, self.params, self.mode)
+        with tf.variable_scope('cvr_model'):
+            cvr_logits = self.fc_net(embedding_layer)
+            # cvr_logits = DIN(self.features, self.labels, self.params, self.mode)
+        ctr_predictions = tf.sigmoid(ctr_logits, name="CTR")
+        cvr_predictions = tf.sigmoid(cvr_logits, name="CVR")
+
+    def build_estimator_spec(self):
+        pass
+
+    pass
+
+class BST(BaseModel):
     pass
 
 class PNN(BaseModel):
     pass
 
-class DCN(BaseModel):
+class DSSM(BaseModel):
     pass
 
-class DeepFM(BaseModel):
-    pass
+
+
 
 # class dien(object):
 #     def __init__(self, features,labels,params,mode):
