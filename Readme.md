@@ -17,6 +17,7 @@
 1.如果集群上已经安装了tensorflow，可以用本文件下的代码进行处理。  
 2.对于没有安装tensorflow的集群，可以参考:[spark-tensorflow-connector](https://github.com/tensorflow/ecosystem/tree/master/spark/spark-tensorflow-connector) 来将数据转换成tfrecords。这个更快。  
   
+                            -------------------------弃用--------------------------------
 #### wd_model/(已删除，合并到DeepRank)  
 所以这里我自己实现了一个wide&deep模型。支持连续特征，类别特征，embedding特征，特征交叉等常见操作，也支持list特征以及各种数据类型。能很方便的将生成的模型export，以及支持分布式训练。  
 修改模型的核心代码可以很方便的扩展到其他DNN模型，现在暂时只支持Wide，DNN，WD三类。   
