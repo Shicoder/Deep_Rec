@@ -33,14 +33,19 @@ class BaseModel(object):
         self.mode = mode
         self.model_features = params["FEATURES_DICT"]
         self.logits = None
-        with tf.variable_scope('embedding_module'):
-            self.get_feature_embedding()
+        self.Wide_Features,\
+        self.Deep_Features = self._get_feature_embedding
+        self.embedding_layer = None
 
-    def get_feature_embedding(self):
+    @property
+    def _get_feature_embedding(self):
         Feature_Columns = FeatureBuilder(self.model_features)
-        WideFeatures,DeepFeatures = Feature_Columns.get_feature_columns()
-        self.Wide_Features = WideFeatures
-        self.Deep_Features = DeepFeatures
+        WideFeats,DeepFeas = Feature_Columns.get_feature_columns()
+        return WideFeats,DeepFeas
+
+    def get_embedding_layer(self,feature_columns):
+        embedding_layer = tf.feature_column.input_layer(self.features, feature_columns)
+        return embedding_layer
 
     def _classification_output(self,scores, n_classes, label_vocabulary=None):
         batch_size = array_ops.shape(scores)[0]
@@ -74,6 +79,7 @@ class BaseModel(object):
             act = tf.nn.sigmoid
         return act
 
+    # get_optimizer_instance
     def fc_net(self,net,last_num=1,activation=None):
         '''MLP'''
 
@@ -114,6 +120,8 @@ class BaseModel(object):
             optimizer=optimizer,
             logits=self.logits)
 
+    # tf.estimator.DNNLinearCombinedClassifier（）
+
     def attention_layer(self, seq_ids, tid, bucket_size, embedding_size, attention_hidden_units, id_type):
         with tf.variable_scope("attention_" + id_type):
             embeddings = self.embedding_table(bucket_size, embedding_size, id_type)
@@ -136,77 +144,54 @@ class BaseModel(object):
             att_emb = tf.reduce_sum(tf.multiply(wgt_emb, masks), 1, name="weighted_embedding")
             return att_emb, tid_emb
 
+'''DNN demo'''
 class DNN(BaseModel):
     '''DNN model'''
     def __init__(self, features, labels, params, mode):
         super(DNN,self).__init__(features, labels, params, mode)
-        with tf.variable_scope('DNN_module'):
-            self.logits = self.dnn()
+        with tf.variable_scope('Embedding_Module'):
+            self.embedding_layer = self.get_embedding_layer(self.Deep_Features)
+        with tf.variable_scope('DNN_Module'):
+            self.logits = self._model_fn
 
-    def dnn(self):
+    @property
+    def _model_fn(self):
         '''DNN model'''
         with tf.variable_scope('fc_net'):
-            net = tf.feature_column.input_layer(self.features, self.Deep_Features)
-            logits = self.fc_net(net,1)
+            logits = self.fc_net(self.embedding_layer,1)
         return logits
-
 
 class DCN(BaseModel):
     '''Deep cross network'''
     def __init__(self, features, labels, params, mode):
         super(DCN,self).__init__(features, labels, params, mode)
         self.cross_layer_num = params["CROSS_LAYER_NUM"]
-        with tf.variable_scope('DCN_module'):
-            self.logits = self.dcn()
+        with tf.variable_scope('Embedding_Module'):
+            self.embedding_layer = self.get_embedding_layer(self.Deep_Features)
+        with tf.variable_scope('DCN_Module'):
+            self.logits = self._model_fn
 
-    def dcn(self):
+    @property
+    def _model_fn(self):
         '''dcn model'''
-        embedding_layer = tf.feature_column.input_layer(self.features, self.Deep_Features)
-        with tf.variable_scope('dcn'):
-            mlp_layer = self.fc_net(embedding_layer,8,'relu')
-            cross_layer = self.cross_net(embedding_layer,self.cross_layer_num)
-        logits = tf.concat([mlp_layer, cross_layer], 1)
-        return logits
-
-class DeepFM(BaseModel):
-    def __init__(self, features, labels, params, mode):
-        super(DeepFM,self).__init__(features, labels, params, mode)
-        self.cross_layer_num = params["CROSS_LAYER_NUM"]
-        with tf.variable_scope('DCN_module'):
-            self.logits = self.deepfm()
-    def deepfm(self):
-        embedding_layer = tf.feature_column.input_layer(self.features, self.Deep_Features)
-        mlp_layer = self.fc_net(embedding_layer,8,'relu')
-        fm_layer = self.fm_layer(embedding_layer)
-        logits = tf.concat([mlp_layer, fm_layer], 1)
-        return logits
-
-    def fm_layer(self,features):
-        """FM model .
-        """
-        flat_val = tf.feature_column.input_layer(self.features, self.Deep_Features)\
-        # shape(batch_size, column_num * embedding_size)
-        vals = tf.reshape(flat_val, (-1, column_num, dimension), "interaction_embeddings")
-        # sum-square-part
-        summed_val = math_ops.reduce_sum(vals, 1)
-        summed_square_val = math_ops.square(summed_val)
-
-        # squre-sum-part...2
-        squared_val = math_ops.square(vals)
-        squared_sum_val = math_ops.reduce_sum(squared_val, 1)
-
-        # second order...3
-        logits = math_ops.reduce_sum(0.5 * math_ops.subtract(summed_square_val, squared_sum_val), -1)
+        mlp_layer = self.fc_net(self.embedding_layer,8,'relu')
+        cross_layer = self.cross_net(self.embedding_layer,self.cross_layer_num)
+        last_layer = tf.concat([mlp_layer, cross_layer], 1)
+        logits = tf.layers.dense(last_layer,1)
         return logits
 
 class WD_Model(BaseModel):
     '''wide and deep model'''
     def __init__(self, features, labels, params, mode):
         super(WD_Model,self).__init__(features, labels, params, mode)
-        with tf.variable_scope('DNN_module'):
-            self.logits,self.train_op_fn = self.wd_model()
+        with tf.variable_scope('Embedding_Module'):
+            self.embedding_layer = self.get_embedding_layer(self.Deep_Features)
+        with tf.variable_scope('DNN_Module'):
+            self.logits,self.train_op_fn = self._model_fn
 
-    def wd_model(self):
+
+    @property
+    def _model_fn(self):
         '''wide and deep model'''
         with tf.variable_scope('fc_net'):
             with tf.variable_scope(
@@ -214,8 +199,7 @@ class WD_Model(BaseModel):
                     values=tuple(six.itervalues(self.features)),
             ) as scope:
                 dnn_absolute_scope = scope.name
-                net = tf.feature_column.input_layer(self.features, self.Deep_Features)
-                dnn_logits = self.fc_net(net,1)
+                dnn_logits = self.fc_net(self.embedding_layer,1)
             with tf.variable_scope(
                     'linear_model',
                     values=tuple(six.itervalues(self.features)),
@@ -258,7 +242,6 @@ class WD_Model(BaseModel):
                 train_op = control_flow_ops.group(*train_ops)
                 with ops.control_dependencies([train_op]):
                     return state_ops.assign_add(global_step, 1).op
-
             return logits, _train_op_fn
 
     def build_estimator_spec(self):
@@ -272,25 +255,28 @@ class WD_Model(BaseModel):
             train_op_fn=self.train_op_fn,
             logits=self.logits)
 
-
 class DIN(BaseModel):
     '''Deep Interest Network Model'''
     def __init__(self, features, labels, params, mode):
         super(DIN,self).__init__(features, labels, params, mode)
         # seq feature,
-        self.din_user_goods_seq = features["seq_goods_id_seq"]
-        self.din_target_goods_id = features["goods_id"]
+        self.din_user_goods_seq = features["seq_goods_id_seq"] # can not include in model feature
+        self.din_target_goods_id = features["goods_id"] # can not include in model feature or new type
         self.goods_embedding_size = 16
         self.goods_bucket_size = 1000
         self.goods_attention_hidden_units = [50, 25]
 
         # self.din_user_class_seq = features["class_seq"]
         # self.din_target_class_id = features["class_id"]
-        self.logits = self.Din_model()
+        with tf.variable_scope('Embedding_Module'):
+            self.common_layer = self.get_embedding_layer(self.Deep_Features)
+        with tf.variable_scope('Din_Module'):
+            self.logits = self._model_fn
 
-    def Din_model(self):
+
+    @property
+    def _model_fn(self):
         # feature_columns not include attention feature
-        common_layer = tf.feature_column.input_layer(self.features,self.Deep_Features)
         din_user_seq = tf.string_to_hash_bucket_fast(self.din_user_goods_seq,self.goods_bucket_size)
         din_target_id = tf.string_to_hash_bucket_fast(self.din_target_goods_id,self.goods_bucket_size)
         din_useq_embedding, din_tid_embedding = self.attention_layer(din_user_seq, din_target_id,
@@ -298,9 +284,44 @@ class DIN(BaseModel):
                                                                      self.goods_embedding_size,
                                                                      self.goods_attention_hidden_units,
                                                                      id_type="click_seq")
-        din_net = tf.concat([common_layer, din_useq_embedding, din_tid_embedding], axis=1)
+        din_net = tf.concat([self.common_layer, din_useq_embedding, din_tid_embedding], axis=1)
         logits = self.fc_net(din_net,1)
         return logits
+
+class DeepFM(BaseModel):
+    def __init__(self, features, labels, params, mode):
+        super(DeepFM,self).__init__(features, labels, params, mode)
+        self.cross_layer_num = params["CROSS_LAYER_NUM"]
+        with tf.variable_scope('DCN_module'):
+            self.logits = self.deepfm()
+    def deepfm(self):
+        embedding_layer = tf.feature_column.input_layer(self.features, self.Deep_Features)
+        mlp_layer = self.fc_net(embedding_layer,8,'relu')
+        fm_layer = self.fm_layer(embedding_layer)
+        logits = tf.concat([mlp_layer, fm_layer], 1)
+        return logits
+
+    def fm_layer(self,features):
+        """FM model .
+        """
+        # flat_val = tf.feature_column.input_layer(self.features, self.Deep_Features)\
+        # # shape(batch_size, column_num * embedding_size)
+        # vals = tf.reshape(flat_val, (-1, column_num, dimension), "interaction_embeddings")
+        # # sum-square-part
+        # summed_val = math_ops.reduce_sum(vals, 1)
+        # summed_square_val = math_ops.square(summed_val)
+        #
+        # # squre-sum-part...2
+        # squared_val = math_ops.square(vals)
+        # squared_sum_val = math_ops.reduce_sum(squared_val, 1)
+        #
+        # # second order...3
+        # logits = math_ops.reduce_sum(0.5 * math_ops.subtract(summed_square_val, squared_sum_val), -1)
+        # return logits
+        pass
+
+
+
 
 class DIEN(BaseModel):
     '''Deep Interest Evolution Network Model'''
@@ -561,8 +582,11 @@ class PNN(BaseModel):
 class DSSM(BaseModel):
     pass
 
+class IRGAN(BaseModel):
+    pass
 
-
+class DSIN(BaseModel):
+    pass
 
 # class dien(object):
 #     def __init__(self, features,labels,params,mode):
