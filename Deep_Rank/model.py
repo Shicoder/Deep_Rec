@@ -20,12 +20,24 @@ from tensorflow.python.ops.losses import losses
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import control_flow_ops
 from tensorflow.python.ops import state_ops
+from tensorflow.python.feature_column import feature_column
 import six
 import math
 from alg_utils.utils_tf import PReLU,get_input_schema_spec,dice
 import random
+import collections
+
+from abc import ABCMeta,abstractproperty
+
+CLASSES = 'classes'
+CLASS_IDS = 'class_ids'
+_DEFAULT_SERVING_KEY = signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY
+_CLASSIFY_SERVING_KEY = 'classification'
+_PREDICT_SERVING_KEY = 'predict'
 
 class BaseModel(object):
+    __metaclass__ = ABCMeta
+
     def __init__(self, features,labels,params,mode):
         self.features = features
         self.labels =labels
@@ -33,21 +45,31 @@ class BaseModel(object):
         self.mode = mode
         self.model_features = params["FEATURES_DICT"]
         self.logits = None
-        self.Wide_Features,\
+        self.Linear_Features,\
         self.Deep_Features = self._get_feature_embedding
         self.embedding_layer = None
 
+
+    @abstractproperty
+    def _model_fn(self):
+        '''model function 实现模型主题结构，必须在子类中对该函数进行实现'''
+        # raise NotImplementedError
+        pass
+
     @property
     def _get_feature_embedding(self):
+        '''解析model_feature.json文件中的特征，这里所有的特征分为两类。'''
         Feature_Columns = FeatureBuilder(self.model_features)
-        WideFeats,DeepFeas = Feature_Columns.get_feature_columns()
-        return WideFeats,DeepFeas
+        LinearFeas,DeepFeas = Feature_Columns.get_feature_columns()
+        return LinearFeas,DeepFeas
 
-    def get_embedding_layer(self,feature_columns):
+    def get_input_layer(self,feature_columns):
+        '''输入层数据，上层网络共享底层输入的embedding数据'''
         embedding_layer = tf.feature_column.input_layer(self.features, feature_columns)
         return embedding_layer
 
     def _classification_output(self,scores, n_classes, label_vocabulary=None):
+        '''定义分类输出格式'''
         batch_size = array_ops.shape(scores)[0]
         if label_vocabulary:
             export_class_list = label_vocabulary
@@ -62,6 +84,7 @@ class BaseModel(object):
             classes=export_output_classes)
 
     def embedding_table(self,bucket_size,embedding_size,col):
+        '''生成矩阵'''
         embeddings = tf.get_variable(
             shape=[bucket_size, embedding_size],
             initializer=init_ops.glorot_uniform_initializer(),
@@ -69,6 +92,7 @@ class BaseModel(object):
             name="deep_embedding_" + col)
         return embeddings
     def get_activation(self,activation):
+        '''激活函数'''
         if activation==None:
             act = None
         elif activation == 'prelu':
@@ -81,7 +105,7 @@ class BaseModel(object):
 
     # get_optimizer_instance
     def fc_net(self,net,last_num=1,activation=None):
-        '''MLP'''
+        '''MLP全连接网络'''
 
         act  = self.get_activation(activation)
         net = tf.layers.batch_normalization(inputs=net, name='bn1', training=True)
@@ -93,6 +117,7 @@ class BaseModel(object):
         return logits
 
     def cross_layer(self,x0,x,name):
+        '''deep cross net中的单层cross结构'''
         with tf.variable_scope(name):
             input_dim = x0.get_shape().as_list()[1]
             w = tf.get_variable("weight", [input_dim], initializer=tf.truncated_normal_initializer(stddev=0.01))
@@ -101,15 +126,16 @@ class BaseModel(object):
             return x0 * xb + b + x
 
     def cross_net(self,net,cross_layer_num):
+        '''deep cross net中的cross侧网络结构'''
         '''cross network'''
         x0 = net
         for i in range(cross_layer_num):
             net = self.cross_layer(x0,net,'cross_{}'.format(i))
         return net
 
-
+    @property
     def build_estimator_spec(self):
-        '''Build EstimatorSpec'''
+        '''Build EstimatorSpec 返回一个EstimatorSpec'''
         my_head = head._binary_logistic_head_with_sigmoid_cross_entropy_loss(  # pylint: disable=protected-access
                 loss_reduction=losses.Reduction.SUM)
         optimizer = tf.train.AdagradOptimizer(learning_rate=self.params['LEARNING_RATE'])
@@ -121,8 +147,30 @@ class BaseModel(object):
             logits=self.logits)
 
     # tf.estimator.DNNLinearCombinedClassifier（）
+    def _check_logits_final_dim(self,logits, expected_logits_dimension):
+        """Checks that logits shape is [D0, D1, ... DN, logits_dimension]."""
+        with ops.name_scope(None, 'logits', (logits,)) as scope:
+            logits = tf.to_float(logits)
+            logits_shape = tf.shape(logits)
+            assert_rank = tf.assert_rank_at_least(
+                logits, 2, data=[logits_shape],
+                message='logits shape must be [D0, D1, ... DN, logits_dimension]')
+            with ops.control_dependencies([assert_rank]):
+                static_shape = logits.shape
+                if static_shape.ndims is not None and static_shape[-1] is not None:
+                    if static_shape[-1] != expected_logits_dimension:
+                        raise ValueError(
+                            'logits shape must be [D0, D1, ... DN, logits_dimension], '
+                            'got %s.' % (static_shape,))
+                    return logits
+                assert_dimension = tf.assert_equal(
+                    expected_logits_dimension, logits_shape[-1], data=[logits_shape],
+                    message='logits shape must be [D0, D1, ... DN, logits_dimension]')
+                with ops.control_dependencies([assert_dimension]):
+                    return tf.identity(logits, name=scope)
 
     def attention_layer(self, seq_ids, tid, bucket_size, embedding_size, attention_hidden_units, id_type):
+        '''attention 结构，seq_ids是序列id，tid是目标id'''
         with tf.variable_scope("attention_" + id_type):
             embeddings = self.embedding_table(bucket_size, embedding_size, id_type)
             seq_emb = tf.nn.embedding_lookup(embeddings,
@@ -146,11 +194,11 @@ class BaseModel(object):
 
 '''DNN demo'''
 class DNN(BaseModel):
-    '''DNN model'''
+    '''DNN model 最简单的dnn结构'''
     def __init__(self, features, labels, params, mode):
         super(DNN,self).__init__(features, labels, params, mode)
         with tf.variable_scope('Embedding_Module'):
-            self.embedding_layer = self.get_embedding_layer(self.Deep_Features)
+            self.embedding_layer = self.get_input_layer(self.Deep_Features)
         with tf.variable_scope('DNN_Module'):
             self.logits = self._model_fn
 
@@ -167,7 +215,7 @@ class DCN(BaseModel):
         super(DCN,self).__init__(features, labels, params, mode)
         self.cross_layer_num = params["CROSS_LAYER_NUM"]
         with tf.variable_scope('Embedding_Module'):
-            self.embedding_layer = self.get_embedding_layer(self.Deep_Features)
+            self.embedding_layer = self.get_input_layer(self.Deep_Features)
         with tf.variable_scope('DCN_Module'):
             self.logits = self._model_fn
 
@@ -185,7 +233,7 @@ class WD_Model(BaseModel):
     def __init__(self, features, labels, params, mode):
         super(WD_Model,self).__init__(features, labels, params, mode)
         with tf.variable_scope('Embedding_Module'):
-            self.embedding_layer = self.get_embedding_layer(self.Deep_Features)
+            self.embedding_layer = self.get_input_layer(self.Deep_Features)
         with tf.variable_scope('DNN_Module'):
             self.logits,self.train_op_fn = self._model_fn
 
@@ -205,7 +253,7 @@ class WD_Model(BaseModel):
                     values=tuple(six.itervalues(self.features)),
             ) as scope:
                 linear_absolute_scope = scope.name
-                linear_logits = tf.feature_column.linear_model(self.features,self.Wide_Features)
+                linear_logits = tf.feature_column.linear_model(self.features,self.Linear_Features)
 
             if dnn_logits is not None and linear_logits is not None:
                 logits = dnn_logits + linear_logits
@@ -220,7 +268,7 @@ class WD_Model(BaseModel):
                 default_learning_rate = 1. / math.sqrt(num_linear_feature_columns)
                 return min(self.params['LINEAR_LEARNING_RATE'], default_learning_rate)
 
-            linear_optimizer = tf.train.FtrlOptimizer(_linear_learning_rate(len(self.Wide_Features)))
+            linear_optimizer = tf.train.FtrlOptimizer(_linear_learning_rate(len(self.Linear_Features)))
             def _train_op_fn(loss):
                 train_ops = []
                 global_step = tf.train.get_global_step()
@@ -244,6 +292,7 @@ class WD_Model(BaseModel):
                     return state_ops.assign_add(global_step, 1).op
             return logits, _train_op_fn
 
+    @property
     def build_estimator_spec(self):
         '''Build EstimatorSpec'''
         my_head = head._binary_logistic_head_with_sigmoid_cross_entropy_loss(  # pylint: disable=protected-access
@@ -269,7 +318,7 @@ class DIN(BaseModel):
         # self.din_user_class_seq = features["class_seq"]
         # self.din_target_class_id = features["class_id"]
         with tf.variable_scope('Embedding_Module'):
-            self.common_layer = self.get_embedding_layer(self.Deep_Features)
+            self.common_layer = self.get_input_layer(self.Deep_Features)
         with tf.variable_scope('Din_Module'):
             self.logits = self._model_fn
 
@@ -288,40 +337,219 @@ class DIN(BaseModel):
         logits = self.fc_net(din_net,1)
         return logits
 
+
+class ESMM(BaseModel):
+    ''' Entire Space Multi-Task Model: An Effective Approach for Estimating Post-Click Conversion Rate'''
+    def __init__(self, features, labels, params, mode):
+        super(ESMM,self).__init__(features, labels, params, mode)
+        # seq feature,
+        self.din_user_goods_seq = features["seq_goods_id_seq"]
+        self.din_target_goods_id = features["goods_id"]
+        self.goods_embedding_size = 16
+        self.goods_bucket_size = 1000
+        self.goods_attention_hidden_units = [50, 25]
+
+        self.uid = None
+
+        self.GRU_HIDDEN_SIZE = 8
+        self.ATTENTION_SIZE = 8
+        self.sequence_length = 6
+
+        # self.din_user_class_seq = features["class_seq"]
+        # self.din_target_class_id = features["class_id"]
+        with tf.variable_scope('Embedding_Module'):
+            self.embedding_layer = self.get_input_layer(self.Deep_Features)
+        with tf.variable_scope('Din_Module'):
+            self.ctr_logits,self.cvr_logits = self._model_fn
+
+    @property
+    def _model_fn(self):
+        with tf.variable_scope('ctr_model'):
+            ctr_logits = self.fc_net(self.embedding_layer)
+            # ctr_logits = DIN(self.features, self.labels, self.params, self.mode)
+        with tf.variable_scope('cvr_model'):
+            cvr_logits = self.fc_net(self.embedding_layer)
+            # cvr_logits = DIN(self.features, self.labels, self.params, self.mode)
+        return ctr_logits,cvr_logits
+
+    def _MY_HEAD(self,
+                 mode,
+                 label_ctr,
+                 label_cvr,
+                 ctr_logits,
+                 cvr_logits):
+
+        ctr_prob = tf.sigmoid(self.ctr_logits, name="CTR")
+        cvr_prob = tf.sigmoid(self.cvr_logits, name="CVR")
+        ctcvr_prob = tf.multiply(ctr_prob, cvr_prob, name="CTCVR")
+
+        if mode == tf.estimator.ModeKeys.PREDICT:
+            predictions = {
+                'probabilities': ctcvr_prob,
+                'ctr_probabilities': ctr_prob,
+                'cvr_probabilities': cvr_prob
+            }
+            export_outputs = {
+                'prediction': tf.estimator.export.PredictOutput(predictions)
+            }
+            return tf.estimator.EstimatorSpec(mode, predictions=predictions, export_outputs=export_outputs)
+
+        ctr_loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=label_ctr, logits=ctr_logits),
+                                 name='ctr_loss')
+        cvr_loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=label_cvr, logits=cvr_logits),
+                                 name='cvr_loss')
+        loss = tf.add(ctr_loss, cvr_loss, name='ctcvr_loss')
+        ctr_accuracy = tf.metrics.accuracy(labels=label_ctr,
+                                           predictions=tf.to_float(tf.greater_equal(ctr_prob, 0.5)))
+        cvr_accuracy = tf.metrics.accuracy(labels=label_cvr, predictions=tf.to_float(tf.greater_equal(cvr_prob, 0.5)))
+        ctr_auc = tf.metrics.auc(label_ctr, ctr_prob)
+        cvr_auc = tf.metrics.auc(label_cvr, cvr_prob)
+        metrics = {'cvr_accuracy': cvr_accuracy, 'ctr_accuracy': ctr_accuracy, 'ctr_auc': ctr_auc, 'cvr_auc': cvr_auc}
+        tf.summary.scalar('ctr_accuracy', ctr_accuracy[1])
+        tf.summary.scalar('cvr_accuracy', cvr_accuracy[1])
+        tf.summary.scalar('ctr_auc', ctr_auc[1])
+        tf.summary.scalar('cvr_auc', cvr_auc[1])
+
+        if mode == tf.estimator.ModeKeys.EVAL:
+            return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
+
+        assert mode == tf.estimator.ModeKeys.TRAIN
+        dnn_optimizer = tf.train.AdagradOptimizer(learning_rate=self.params['LEARNING_RATE'])
+        train_op = dnn_optimizer.minimize(loss, global_step=tf.train.get_global_step())
+        return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+
+    @property
+    def build_estimator_spec(self):
+        label_ctr = tf.reshape(self.labels['ctr'], (-1, 1))
+        label_cvr = tf.reshape(self.labels['cvr'], (-1, 1))
+        return self._MY_HEAD(
+            self.mode,
+            label_ctr,
+            label_cvr,
+            self.ctr_logits,
+            self.cvr_logits)
+        # ctr_predictions = tf.sigmoid(self.ctr_logits, name="CTR")
+        # cvr_predictions = tf.sigmoid(self.cvr_logits, name="CVR")
+        # prop = tf.multiply(ctr_predictions, cvr_predictions, name="CTCVR")
+        # price = tf.expand_dims(tf.to_float(self.features["g_goods_price_o"]), axis=-1)
+        # ecpm = tf.multiply(prop,tf.log1p(price),name="ECPM")
+        # ecpm = self._check_logits_final_dim(ecpm, 1)
+        # two_class_ecpm = tf.concat(
+        #     (tf.zeros_like(ecpm), ecpm),
+        #     axis=-1, name='two_class_logits')
+        # class_ids = tf.argmax(two_class_ecpm, axis=-1, name=CLASS_IDS)
+        # class_ids = tf.expand_dims(class_ids, axis=-1)
+        # print("class_ids shape:", class_ids.shape)
+        # classes = tf.as_string(class_ids, name='str_classes')
+        # print("classes shape:", classes.shape)
+        #
+        # if self.mode == tf.estimator.ModeKeys.PREDICT:
+        #     predictions = {
+        #         'probabilities': ecpm,
+        #         # 'ctr_probabilities': ctr_predictions,
+        #         # 'cvr_probabilities': cvr_predictions
+        #         CLASS_IDS: class_ids,
+        #         CLASSES: classes,
+        #     }
+        #
+        #     classifier_output = self._classification_output(
+        #         scores=two_class_ecpm, n_classes=2,
+        #         label_vocabulary=None)
+        #
+        #     export_outputs = {
+        #     _DEFAULT_SERVING_KEY: classifier_output,
+        #     _CLASSIFY_SERVING_KEY: classifier_output,
+        #     _PREDICT_SERVING_KEY: tf.estimator.export.PredictOutput(predictions)
+        #     }
+        #     return tf.estimator.EstimatorSpec(self.mode, predictions=predictions, export_outputs=export_outputs)
+        #
+        # y = self.labels['cvr']
+        # cvr_loss = tf.reduce_sum(tf.keras.backend.binary_crossentropy(tf.reshape(y,(-1,1)), prop), name="cvr_loss")
+        # ctr_loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.reshape(self.labels['ctr'],(-1,1)), logits=self.ctr_logits),
+        #                          name="ctr_loss")
+        # loss = tf.add(ctr_loss, cvr_loss, name="ctcvr_loss")
+        #
+        # ctr_accuracy = tf.metrics.accuracy(labels=self.labels['ctr'],
+        #                                    predictions=tf.to_float(tf.greater_equal(ctr_predictions, 0.5)))
+        # cvr_accuracy = tf.metrics.accuracy(labels=y, predictions=tf.to_float(tf.greater_equal(prop, 0.5)))
+        # ctr_auc = tf.metrics.auc(self.labels['ctr'], ctr_predictions)
+        # cvr_auc = tf.metrics.auc(y, prop)
+        # metrics = {'cvr_accuracy': cvr_accuracy, 'ctr_accuracy': ctr_accuracy, 'ctr_auc': ctr_auc, 'cvr_auc': cvr_auc}
+        # tf.summary.scalar('ctr_accuracy', ctr_accuracy[1])
+        # tf.summary.scalar('cvr_accuracy', cvr_accuracy[1])
+        # tf.summary.scalar('ctr_auc', ctr_auc[1])
+        # tf.summary.scalar('cvr_auc', cvr_auc[1])
+        # if self.mode == tf.estimator.ModeKeys.EVAL:
+        #     return tf.estimator.EstimatorSpec(self.mode, loss=loss, eval_metric_ops=metrics)
+        #
+        # # Create training op.
+        # assert self.mode == tf.estimator.ModeKeys.TRAIN
+        # optimizer = tf.train.AdagradOptimizer(learning_rate=self.params['LEARNING_RATE'])
+        # train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+        # return tf.estimator.EstimatorSpec(self.mode, loss=loss, train_op=train_op)
+
 class DeepFM(BaseModel):
+    '''
+    DeepFM model
+    model feature 中
+    wide配置直接使用正常wide and deep 方式配置
+    deep配置只能配置embeddingcolumn，并且所有的column的dimension必须一致；
+    '''
     def __init__(self, features, labels, params, mode):
         super(DeepFM,self).__init__(features, labels, params, mode)
-        self.cross_layer_num = params["CROSS_LAYER_NUM"]
-        with tf.variable_scope('DCN_module'):
-            self.logits = self.deepfm()
-    def deepfm(self):
-        embedding_layer = tf.feature_column.input_layer(self.features, self.Deep_Features)
-        mlp_layer = self.fc_net(embedding_layer,8,'relu')
-        fm_layer = self.fm_layer(embedding_layer)
-        logits = tf.concat([mlp_layer, fm_layer], 1)
+        with tf.variable_scope('Embedding_Module'):
+            self.embedding_layer = self.get_input_layer(self.Deep_Features)
+        with tf.variable_scope('DeepFM_Module'):
+            self.logits = self._model_fn
+
+    @property
+    def _model_fn(self):
+        linear_logits = tf.feature_column.linear_model(self.features,self.Linear_Features)
+        mlp_logits = self.fc_net(self.embedding_layer,1)
+        fm_logits = self.fm_layer(self.embedding_layer)
+        fm_logits = tf.expand_dims(fm_logits,-1)
+        print(fm_logits.get_shape().as_list())
+        last_layer = tf.concat([linear_logits,mlp_logits, fm_logits], 1)
+        logits = tf.layers.dense(last_layer,1)
         return logits
 
-    def fm_layer(self,features):
-        """FM model .
-        """
-        # flat_val = tf.feature_column.input_layer(self.features, self.Deep_Features)\
-        # # shape(batch_size, column_num * embedding_size)
-        # vals = tf.reshape(flat_val, (-1, column_num, dimension), "interaction_embeddings")
-        # # sum-square-part
-        # summed_val = math_ops.reduce_sum(vals, 1)
-        # summed_square_val = math_ops.square(summed_val)
-        #
-        # # squre-sum-part...2
-        # squared_val = math_ops.square(vals)
-        # squared_sum_val = math_ops.reduce_sum(squared_val, 1)
-        #
-        # # second order...3
-        # logits = math_ops.reduce_sum(0.5 * math_ops.subtract(summed_square_val, squared_sum_val), -1)
-        # return logits
-        pass
+    def fm_layer(self,embedding_layer):
+        """"""
+        # embedding_layer shape is [batch_size, column_num*embedding_size]
+        # shape = [batch_size, column_num, embedding_size]
+        dimension = self._check_columns_dimension(self.Deep_Features)
+        column_num = len(self.Deep_Features)
 
+        # dimension = self.Deep_Features[0].dimension
+        print("column_num:",column_num)
+        print("dimension:",dimension)
+        net = tf.reshape(embedding_layer, (-1, column_num, dimension), "fm_inputs")
 
+        # sum-square-part
+        fm_sum_square = tf.square(tf.reduce_sum(net, 1))
 
+        # squre-sum-part...2
+        fm_squared_sum = tf.reduce_sum(tf.square(net),1)
+
+        # second order...3
+        logits = tf.reduce_sum(0.5 * tf.subtract(fm_sum_square, fm_squared_sum), -1)
+        return logits
+
+    def _check_columns_dimension(self,feature_columns):
+        if isinstance(feature_columns, collections.Iterator):
+            feature_columns = list(feature_columns)
+        column_num = len(feature_columns)
+        if column_num < 2:
+            raise ValueError('feature_columns must have as least two elements.')
+        dimension = -1
+        for column in feature_columns:
+            if not isinstance(column, feature_column._EmbeddingColumn):
+                raise ValueError('Items of feature_columns must be a EmbeddingColumn. '
+                                 'Given (type {}): {}.'.format(type(column), column))
+            if dimension != -1 and column.dimension != dimension:
+                raise ValueError('FM_feature_columns must have the same dimension.{}.vs{}'.format(str(dimension),str(column.dimension)))
+            dimension = column.dimension
+        return dimension
 
 class DIEN(BaseModel):
     '''Deep Interest Evolution Network Model'''
@@ -474,6 +702,7 @@ class DIEN(BaseModel):
         logits = self.fc_net(inp,1)
         return logits
 
+    @property
     def build_estimator_spec(self):
         '''Build EstimatorSpec'''
 
@@ -534,44 +763,6 @@ class DIEN(BaseModel):
         return tf.estimator.EstimatorSpec(self.mode, loss=loss, train_op=train_op)
 
 
-class ESMM(BaseModel):
-    def __init__(self, features, labels, params, mode):
-        super(ESMM,self).__init__(features, labels, params, mode)
-        # seq feature,
-        self.din_user_goods_seq = features["seq_goods_id_seq"]
-        self.din_target_goods_id = features["goods_id"]
-        self.goods_embedding_size = 16
-        self.goods_bucket_size = 1000
-        self.goods_attention_hidden_units = [50, 25]
-
-        self.uid = None
-
-        self.GRU_HIDDEN_SIZE = 8
-        self.ATTENTION_SIZE = 8
-        self.sequence_length = 6
-
-        # self.din_user_class_seq = features["class_seq"]
-        # self.din_target_class_id = features["class_id"]
-
-
-        self.logits = self.esmm()
-
-    def esmm(self):
-        with tf.variable_scope('embedding_module'):
-            embedding_layer = tf.feature_column.input_layer(self.features, self.Deep_Features)
-        with tf.variable_scope('ctr_model'):
-            ctr_logits = self.fc_net(embedding_layer)
-            # ctr_logits = DIN(self.features, self.labels, self.params, self.mode)
-        with tf.variable_scope('cvr_model'):
-            cvr_logits = self.fc_net(embedding_layer)
-            # cvr_logits = DIN(self.features, self.labels, self.params, self.mode)
-        ctr_predictions = tf.sigmoid(ctr_logits, name="CTR")
-        cvr_predictions = tf.sigmoid(cvr_logits, name="CVR")
-
-    def build_estimator_spec(self):
-        pass
-
-    pass
 
 class BST(BaseModel):
     pass
@@ -586,6 +777,9 @@ class IRGAN(BaseModel):
     pass
 
 class DSIN(BaseModel):
+    pass
+
+class xDeepFM(BaseModel):
     pass
 
 # class dien(object):
@@ -797,14 +991,17 @@ class export_model(object):
         self.input_schema = input_schema
         self.servable_model_dir =servable_model_dir
         self.drop_cols = drop_cols
+        self.path = self._export
+        print("*********** Done Exporting at PAth - %s", self.path)
 
-    def export(self):
+    @property
+    def _export(self):
         feature_spec = get_input_schema_spec(self.input_schema)
         for col in self.drop_cols:
             del feature_spec[col]
         export_input_fn = tf.estimator.export.build_parsing_serving_input_receiver_fn(feature_spec)
         servable_model_path = self.model.export_savedmodel(self.servable_model_dir, export_input_fn)
-        print("*********** Done Exporting at PAth - %s", servable_model_path)
+        return servable_model_path
 
 
 
