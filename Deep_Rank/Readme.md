@@ -58,10 +58,12 @@
 ## Model Implementation
 
 ### model_brain.py  
-*本文件存放模型核心代码，所有代码继承`BaseModel`类，底层使用tensorflow的FeatureColumns实现统一的embedding层。上层加入核心模型结构。已实现模型：*  
+*本文件存放模型核心代码，所有代码继承`BaseModel`类，底层使用tensorflow的FeatureColumns实现统一的embedding层。上层利用tensorlfow的Layers实现核心模型结构，最后把模型封装成Esitmator，输出统一的estimator_spec接口。*  
 
-#### Base Model DNN
-[`DNN`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L279) 实现的是一个简单的embedding+MLP，在`model_feature.json`中配置`wide_or_deep`参数值 `"deep"`;  
+#### model brain
+*已经实现好的模型有以下几个：*  
+  
+[`DNN`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L279) 实现的是一个简单的embedding+MLP，方便调试整体代码，在`model_feature.json`中配置`wide_or_deep`参数值 `"deep"`;  
   
 [`Deep Cross Network(DCN)` ](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L295)在`model_feature.json`中只需配置`deep特征`，croos层和deep层同用统一的embeddig层。    
 对应算法论文[[click here]](https://arxiv.org/abs/1708.05123)  
