@@ -5,7 +5,7 @@ import sys
 sys.path.append("..")
 import tensorflow as tf
 from alg_utils.utils_tf import load_json_from_file,get_input_schema_spec
-from model import DNN,DCN,DeepFM,DIN,DIEN,DSIN,PNN,WD_Model,export_model
+from model_brain import ESMM,DNN,DCN,DeepFM,DIN,DIEN,DSIN,PNN,WD_Model,BST,DSSM,IRGAN,export_model
 '''nohup python model.py > log 2>&1 &'''
 import argparse
 parser = argparse.ArgumentParser()
@@ -34,38 +34,47 @@ parser.add_argument(
 parser.add_argument(
     '--is_profile', type=bool, default=False, help='if true ,open profile')
 parser.add_argument(
-    '--model_name', type=str, default='din',
+    '--model_name', type=str, default='dien',
     help='model')
-
-
-use_esmm = False
 
 def model_fn(features,
              labels,
              mode,
              params):
   '''model_fn'''
-  # if model_name=='din':
-  #     model = din(features,labels,params,mode)
   model = None
   model_name = FLAGS.model_name
   if model_name == 'dnn':
       model = DNN(features, labels, params, mode)
+  elif model_name == 'dcn':
+      model = DCN(features, labels, params, mode)
   elif model_name == 'wd':
       model = WD_Model(features, labels, params, mode)
-  elif model_name == 'DCN':
-      model = DCN(features, labels, params, mode)
-  elif model_name == 'deepfm':
-      model = DeepFM(features, labels, params, mode)
   elif model_name == 'din':
       model = DIN(features, labels, params, mode)
+  elif model_name == 'esmm':
+      model = ESMM(features, labels, params, mode)
+  elif model_name == 'deepfm':
+      model = DeepFM(features, labels, params, mode)
   elif model_name == 'dien':
       model = DIEN(features, labels, params, mode)
-  elif model_name == 'DSIN':
-      model = DSIN(features, labels, params, mode)
+  # 2
   elif model_name == 'pnn':
       model = PNN(features, labels, params, mode)
-  estimator_spec = model.build_estimator_spec()
+  # elif model_name == 'dssm':
+  #     model = DSSM(features, labels, params, mode)
+  # elif model_name == 'bilinear':
+  #     model = BiLinear(features, labels, params, mode)
+  # elif model_name == 'DSIN':
+  #     model = DSIN(features, labels, params, mode)
+  # 3
+  elif model_name == 'bst':
+      model = BST(features, labels, params, mode)
+  # 4
+  elif model_name == 'irgan':
+      model = IRGAN(features, labels, params, mode)
+  estimator_spec = model.build_estimator_spec
+
   return estimator_spec
 
 
@@ -113,6 +122,12 @@ input_schema = load_json_from_file("./model_schema.json")["schema"]
 model_feature = load_json_from_file("./model_feature.json")
 def main(unused_argv):
 
+    global use_esmm
+    if FLAGS.model_name == 'esmm':
+        use_esmm = True
+    else:
+        use_esmm = False
+
     _HIDDEN_UNITS = [200, 70, 50]
     _DNN_LEARNING_RATE = 0.002
     _LINEAR_LEARNING_RATE = 0.0001
@@ -127,7 +142,8 @@ def main(unused_argv):
             'HIDDEN_UNITS': _HIDDEN_UNITS,
             'LEARNING_RATE':_DNN_LEARNING_RATE,
             'LINEAR_LEARNING_RATE':_LINEAR_LEARNING_RATE,
-            'FEATURES_DICT':model_feature
+            'FEATURES_DICT':model_feature,
+            'CROSS_LAYER_NUM':2 #dcn
         },
         config= estimator_config)
     '''Generate Timeline'''
@@ -144,9 +160,8 @@ def main(unused_argv):
     results = tf.estimator.train_and_evaluate(model, train_spec, eval_spec)
     print(results)
     '''Export Trained Model for Serving'''
-    export = export_model(model,input_schema,FLAGS.servable_model_dir,drop_cols=['label_click', 'label_buy'])
-    flag = export.export()
-    print(flag)
+    export_path = export_model(model,input_schema,FLAGS.servable_model_dir,drop_cols=['label_click', 'label_buy'])
+    print(export_path)
     print("*********** Finshed Total Pipeline ***********")
 
 if __name__ == '__main__':
