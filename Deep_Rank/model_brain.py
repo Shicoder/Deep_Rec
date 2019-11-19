@@ -963,6 +963,11 @@ class DeepFM(BaseModel):
         return logits
 
 class xDeepFM(BaseModel):
+    '''
+    DeepFM model
+    model feature 中
+    wide配置直接使用正常wide and deep 方式配置
+    deep配置只能配置embeddingcolumn，并且所有的column的dimension必须一致'''
     def __init__(self, features, labels, params, mode):
         super(xDeepFM,self).__init__(features, labels, params, mode)
         self.field_nums = [10,10]
@@ -986,6 +991,8 @@ class xDeepFM(BaseModel):
         return logits
 
 class DSSM(BaseModel):
+    '''DSSM 本来是用于生成语言向量的，不过双塔结构和推荐，广告等场景中的user/item类似，
+    因此也会被用于计算user embedding 和item embedding之间的相关度'''
     def __init__(self, features, labels, params, mode):
         super(DSSM,self).__init__(features, labels, params, mode)
         with tf.variable_scope('Embedding_Module'):
