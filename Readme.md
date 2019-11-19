@@ -107,7 +107,8 @@
   x-deeplearning的xdl-algorithm-solution: [[click here]](https://github.com/alibaba/x-deeplearning/tree/master/xdl-algorithm-solution)   
   脚本配置方式：[[click here]](https://github.com/zhaoxin4data/atlas/tree/master/deeplearning/uciflowwd_train/config)  
   esmm实现:[[click here]](https://github.com/yangxudong/deeplearning/tree/master/esmm)   
-  tensorflow自带的分类器: [[click here]](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/python/estimator/canned)
+  tensorflow自带的分类器: [[click here]](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/python/estimator/canned)  
+  xDeepFM实现:[click_here](https://github.com/Leavingseason/xDeepFM)  
   
   *代码实现的问题：* 
     

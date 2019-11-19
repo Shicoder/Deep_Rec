@@ -88,6 +88,9 @@
 
 [`xDeepFM`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L965)的参数配置和deepFM类似，wide侧放线性特征，deep侧放的是`统一的MLP和CIN特征`，所有这里必须保证deep特征全部是embedding特征，并且embedding维度`全部一致`。  
 对应算法论文[[click here]](https://arxiv.org/pdf/1803.05170.pdf)  
+
+[`DSSM`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L993)需要在wide和deep侧分别放置user info和item info。  
+对应算法论文[[click here]](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/cikm2013_DSSM_fullversion.pdf)  
     
 *后续利用空闲时间和节假日会持续添加新算法*
 
@@ -104,7 +107,8 @@
   x-deeplearning的xdl-algorithm-solution: [[click here]](https://github.com/alibaba/x-deeplearning/tree/master/xdl-algorithm-solution)   
   脚本配置方式：[[click here]](https://github.com/zhaoxin4data/atlas/tree/master/deeplearning/uciflowwd_train/config)  
   esmm实现:[[click here]](https://github.com/yangxudong/deeplearning/tree/master/esmm)   
-  tensorflow自带的分类器: [[click here]](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/python/estimator/canned)
+  tensorflow自带的分类器: [[click here]](https://github.com/tensorflow/tensorflow/tree/master/tensorflow/python/estimator/canned)  
+  xDeepFM实现:[click_here](https://github.com/Leavingseason/xDeepFM)  
   
   *代码实现的问题：* 
     
