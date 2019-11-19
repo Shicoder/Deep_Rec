@@ -1,6 +1,9 @@
 #!/data/venv/hdp-env/bin python
 # -*- coding: utf8 -*-
-# @Author  : shixiangfu
+'''
+Author  : xiangfu shi
+Email   : xfu_shi@163.com
+'''
 
 from __future__ import division
 from __future__ import print_function

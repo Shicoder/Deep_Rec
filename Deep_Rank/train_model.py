@@ -1,11 +1,15 @@
 #!/data/venv/hdp-env/bin python
 # -*- coding: utf8 -*-
-# @Author  : shixiangfu
+'''
+Author  : xiangfu shi
+Email   : xfu_shi@163.com
+'''
+# 啊
 import sys
 sys.path.append("..")
 import tensorflow as tf
 from alg_utils.utils_tf import load_json_from_file,get_input_schema_spec
-from model_brain import ESMM,DNN,DCN,DeepFM,DIN,DIEN,DSIN,PNN,WD_Model,BST,DSSM,IRGAN,export_model
+from model_brain import ESMM,DNN,DCN,DeepFM,DIN,DIEN,PNN,WD_Model,BST,DSSM,IRGAN,xDeepFM,export_model
 '''nohup python model.py > log 2>&1 &'''
 import argparse
 parser = argparse.ArgumentParser()
@@ -34,7 +38,7 @@ parser.add_argument(
 parser.add_argument(
     '--is_profile', type=bool, default=False, help='if true ,open profile')
 parser.add_argument(
-    '--model_name', type=str, default='dien',
+    '--model_name', type=str, default='xdeepfm',
     help='model')
 
 def model_fn(features,
@@ -58,6 +62,10 @@ def model_fn(features,
       model = DeepFM(features, labels, params, mode)
   elif model_name == 'dien':
       model = DIEN(features, labels, params, mode)
+  elif model_name == 'dssm':
+      model = DSSM(features, labels, params, mode)
+  elif model_name == 'xdeepfm':
+      model = xDeepFM(features, labels, params, mode)
   # 2
   elif model_name == 'pnn':
       model = PNN(features, labels, params, mode)
@@ -119,7 +127,7 @@ def input_fn(filenames,
 
 
 input_schema = load_json_from_file("./model_schema.json")["schema"]
-model_feature = load_json_from_file("./model_feature.json")
+model_feature = load_json_from_file("./model_feature.json.deepfm")
 def main(unused_argv):
 
     global use_esmm

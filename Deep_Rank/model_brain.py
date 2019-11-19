@@ -1,6 +1,9 @@
 #!/data/venv/hdp-env/bin python
 # -*- coding: utf8 -*-
-# @Author  : shixiangfu
+'''
+Author  : xiangfu shi
+Email   : xfu_shi@163.com
+'''
 import tensorflow as tf
 import sys
 sys.path.append("..")
@@ -43,6 +46,7 @@ class BaseModel(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, features,labels,params,mode):
+        self.field_nums = []
         self.features = features
         self.labels =labels
         self.params = params
@@ -274,6 +278,96 @@ class BaseModel(object):
         if return_alphas:
             return output, scores
         return output
+    def _check_columns_dimension(self,feature_columns):
+        if isinstance(feature_columns, collections.Iterator):
+            feature_columns = list(feature_columns)
+        column_num = len(feature_columns)
+        if column_num < 2:
+            raise ValueError('feature_columns must have as least two elements.')
+        dimension = -1
+        for column in feature_columns:
+            if not isinstance(column, feature_column._EmbeddingColumn):
+                raise ValueError('Items of feature_columns must be a EmbeddingColumn. '
+                                 'Given (type {}): {}.'.format(type(column), column))
+            if dimension != -1 and column.dimension != dimension:
+                raise ValueError('FM_feature_columns must have the same dimension.{}.vs{}'.format(str(dimension),str(column.dimension)))
+            dimension = column.dimension
+        return dimension
+
+    def cin_net(self,net,direct=True, residual = True):
+        '''xDeepFM中的CIN网络'''
+        '''CIN'''
+        self.final_result = []
+        self.dimension = self._check_columns_dimension(self.Deep_Features)
+        self.column_num = len(self.Deep_Features)
+        print("column_num:{column_num},dimension:{dimension}".format(column_num=self.column_num,dimension=self.dimension))
+
+        x_0 = tf.reshape(net, (-1, self.column_num, self.dimension), "inputs_x0")
+        split_x_0 = tf.split(x_0, self.dimension * [1], 2)
+        next_hidden = x_0
+        for idx,field_num in enumerate(self.field_nums):
+            current_out = self.cin_block(split_x_0, next_hidden, 'cross_{}'.format(idx), field_num)
+
+            if direct:
+                next_hidden = current_out
+                current_output = current_out
+            else:
+                field_num = int(field_num / 2)
+                if idx != len(self.field_nums) - 1:
+                    next_hidden, current_output = tf.split(current_out, 2 * [field_num], 1)
+
+                else:
+                    next_hidden = 0
+                    current_output = current_out
+
+            self.final_result.append(current_output)
+        result = tf.concat(self.final_result, axis=1)
+        result = tf.reduce_sum(result, -1)
+        if residual:
+            exFM_out1 = tf.layers.dense(result, 128, 'relu')
+            exFM_in = tf.concat([exFM_out1, result], axis=1, name="user_emb")
+            exFM_out = tf.layers.dense(exFM_in, 1)
+            return exFM_out
+        else:
+            exFM_out = tf.layers.dense(result, 1)
+            return exFM_out
+
+
+
+    def cin_block(self,x_0,current_x,name=None,next_field_num=None,reduce_D=False,f_dim=2,bias=True,direct=True):
+
+        split_current_x = tf.split(current_x, self.dimension * [1], 2)
+        dot_result_m = tf.matmul(x_0, split_current_x, transpose_b=True)
+        current_field_num = current_x.get_shape().as_list()[1]
+        dot_result_o = tf.reshape(dot_result_m, shape=[self.dimension, -1, self.column_num * current_field_num])
+        dot_result = tf.transpose(dot_result_o, perm=[1, 0, 2])
+
+        if reduce_D:
+            filters0 = tf.get_variable("f0_" + str(name),
+                                       shape=[1, next_field_num,  self.column_num, f_dim],
+                                       dtype=tf.float32)
+            filters_ = tf.get_variable("f__" + str(name),
+                                       shape=[1, next_field_num, f_dim, current_field_num],
+                                       dtype=tf.float32)
+            filters_m = tf.matmul(filters0, filters_)
+            filters_o = tf.reshape(filters_m, shape=[1, next_field_num, self.column_num * current_field_num])
+            filters = tf.transpose(filters_o, perm=[0, 2, 1])
+        else:
+            filters = tf.get_variable(name="f_" + str(name),
+                                      shape=[1, current_field_num * self.column_num, next_field_num],
+                                      dtype=tf.float32)
+
+        curr_out = tf.nn.conv1d(dot_result, filters=filters, stride=1, padding='VALID')
+        if bias:
+            b = tf.get_variable(name="f_b" + str(name),
+                                shape=[next_field_num],
+                                dtype=tf.float32,
+                                initializer=tf.zeros_initializer())
+            curr_out = tf.nn.bias_add(curr_out, b)
+
+        curr_out = tf.nn.sigmoid(curr_out)
+        curr_out = tf.transpose(curr_out, perm=[0, 2, 1])
+        return curr_out
 
 '''DNN demo'''
 class DNN(BaseModel):
@@ -868,42 +962,73 @@ class DeepFM(BaseModel):
         logits = tf.reduce_sum(0.5 * tf.subtract(fm_sum_square, fm_squared_sum), -1)
         return logits
 
-    def _check_columns_dimension(self,feature_columns):
-        if isinstance(feature_columns, collections.Iterator):
-            feature_columns = list(feature_columns)
-        column_num = len(feature_columns)
-        if column_num < 2:
-            raise ValueError('feature_columns must have as least two elements.')
-        dimension = -1
-        for column in feature_columns:
-            if not isinstance(column, feature_column._EmbeddingColumn):
-                raise ValueError('Items of feature_columns must be a EmbeddingColumn. '
-                                 'Given (type {}): {}.'.format(type(column), column))
-            if dimension != -1 and column.dimension != dimension:
-                raise ValueError('FM_feature_columns must have the same dimension.{}.vs{}'.format(str(dimension),str(column.dimension)))
-            dimension = column.dimension
-        return dimension
+class xDeepFM(BaseModel):
+    def __init__(self, features, labels, params, mode):
+        super(xDeepFM,self).__init__(features, labels, params, mode)
+        self.field_nums = [10,10]
+        with tf.variable_scope('Embedding_Module'):
+            self.embedding_layer = self.get_input_layer(self.Deep_Features)
+        with tf.variable_scope('xDeepFM_Module'):
+            self.logits = self._model_fn
 
+    @property
+    def _model_fn(self):
+        linear_layer = tf.feature_column.linear_model(self.features,self.Linear_Features)
+        cin_layer = self.cin_net(self.embedding_layer,direct=False, residual=True)
+        dnn_layer = self.fc_net(self.embedding_layer,1)
+
+        linear_logit = tf.layers.dense(linear_layer,1)
+        cin_logit = tf.layers.dense(cin_layer,1)
+        dnn_logit = tf.layers.dense(dnn_layer,1)
+
+        last_layer = tf.concat([linear_logit, cin_logit, dnn_logit], 1)
+        logits = tf.layers.dense(last_layer,1)
+        return logits
+
+class DSSM(BaseModel):
+    def __init__(self, features, labels, params, mode):
+        super(DSSM,self).__init__(features, labels, params, mode)
+        with tf.variable_scope('Embedding_Module'):
+            '''liner侧放user feature，deep侧放item feature'''
+            self.user_embeddings_layer = self.get_input_layer(self.Linear_Features)
+            self.item_embeddings_layer = self.get_input_layer(self.Deep_Features)
+        with tf.variable_scope('DSSM_Module'):
+            self.logits = self._model_fn
+    @property
+    def _model_fn(self):
+        '''DNN model'''
+        with tf.variable_scope('user_embedding'):
+            user_embedding = self.fc_net(self.user_embeddings_layer,8,activation='prelu')
+        with tf.variable_scope('item_embedding'):
+            item_embedding = self.fc_net(self.item_embeddings_layer, 8,activation='prelu')
+        user_norm = tf.sqrt(tf.reduce_sum(tf.square(user_embedding),1))
+        print("user:",user_norm.get_shape().as_list())
+        print("user_embedding:", user_embedding.get_shape().as_list())
+        item_norm = tf.sqrt(tf.reduce_sum(tf.square(item_embedding),1))
+        prod = tf.reduce_sum(tf.multiply(user_embedding,item_embedding),1)
+        print("prod",prod.get_shape().as_list())
+        logits = tf.div(prod, user_norm * item_norm + 1e-8, name="scores")
+        logits = tf.expand_dims(logits, axis=-1)
+        return logits
 
 
 
 
 class BST(BaseModel):
+    ''' todo '''
     pass
 
 class PNN(BaseModel):
     pass
 
-class DSSM(BaseModel):
-    pass
-
 class IRGAN(BaseModel):
     pass
 
-class DSIN(BaseModel):
-    pass
+# class DSIN(BaseModel):
+#     pass
 
-class xDeepFM(BaseModel):
+class youtube_net(BaseModel):
+    '''MMoE'''
     pass
 
 # class dien(object):

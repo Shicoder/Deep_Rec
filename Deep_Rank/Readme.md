@@ -2,7 +2,8 @@
 
 ## Overview  
 
-**本库对一些经典的ctr预估模型进行了复现，并整理成一套统一的代码。方便自己在工作中迭代优化模型。**  
+**Deep_Rank是一套从数据生成到模型生成的完整框架。对输入特征，特征工程，核心模型，模型输出分别进行了封装。
+模型更新迭代的时候可以针对性的修改指定模块，也方便后续模型的切换，特征的迭代，以及输入数据在输入，特征工程，保存模型，线上服务各个模块的统一配置。本库对一些经典的ctr预估模型进行了复现，方便自己在工作中迭代优化模型。**  
 
 ## Data Read
 利用 `tfrecords/` 下的代码可以很方便的利用spark集群将数仓经过ETL的hive表训练数据转化成`frecords`格式，并存储HDFS上。
@@ -63,26 +64,30 @@
 #### model brain
 *已经实现好的模型有以下几个：*  
   
-[`DNN`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L279) 实现的是一个简单的embedding+MLP，方便调试整体代码，在`model_feature.json`中配置`wide_or_deep`参数值 `"deep"`;  
   
-[`Deep Cross Network(DCN)` ](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L295)在`model_feature.json`中只需配置`deep特征`，croos层和deep层同用统一的embeddig层。    
+[`DNN`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L373) 实现的是一个简单的embedding+MLP，方便调试整体代码，在`model_feature.json`中配置`wide_or_deep`参数值 `"deep"`;  
+  
+[`Deep Cross Network(DCN)` ](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L389)在`model_feature.json`中只需配置`deep特征`，croos层和deep层同用统一的embeddig层。    
 对应算法论文[[click here]](https://arxiv.org/abs/1708.05123)  
    
-[`Wide and Deep Network(WD)`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L314)需要在`model_feature.json`配置wide侧和deep侧对应的特征。    
+[`Wide and Deep Network(WD)`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L408)需要在`model_feature.json`配置wide侧和deep侧对应的特征。    
 对应算法论文[[click here]](https://arxiv.org/abs/1606.07792)   
 
-[`Deep Interest Network(DIN)`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L390)的上下文特征和基础画像特征需要配置`model_feature.json`中，统一使用`"deep"`特征,其中需要做`attention`的`sequence`和`sequence对应的目标id`不需要配置在`model_feature.json`中，直接配置在模型参数中。  
+[`Deep Interest Network(DIN)`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L484)的上下文特征和基础画像特征需要配置`model_feature.json`中，统一使用`"deep"`特征,其中需要做`attention`的`sequence`和`sequence对应的目标id`不需要配置在`model_feature.json`中，直接配置在模型参数中。  
 在对应算法论文[[click here]](https://arxiv.org/abs/1706.06978)  
 
-[`Entire Space Multi-Task Model(ESMM)`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L674)也一样，默认只使用`"deep"`特征。 
+[`Entire Space Multi-Task Model(ESMM)`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L768)也一样，默认只使用`"deep"`特征。 
 对应算法论文[[click here]](https://arxiv.org/abs/1804.07931)  
   
-[`Deep Interest Evolution Network(DIEN)`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L424)和DIN一样，`序列特征`和`序列对应目标id`需要在模型中写。  
+[`Deep Interest Evolution Network(DIEN)`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L518)和DIN一样，`序列特征`和`序列对应目标id`需要在模型中写。  
 这里为了实现方便，序列的`负采样`部分没有按照原始论文的方式单独使用一份负采样的item数据集，而是直接使用`同一个batch`中的`其他sequence`作为当前的`负采样序列`。  
 对应算法论文[[click here]](https://arxiv.org/abs/1809.03672)   
  
-[`DeepFM`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L824)的wide侧放线性特征，deep侧放的是`统一的MLP和FM的特征`，所有这里必须保证deep特征全部是embedding特征，并且embedding维度`全部一致`。这里后续会优化一下，对一些数值特征做优化，方便扩展。  
+[`DeepFM`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L918)的wide侧放线性特征，deep侧放的是`统一的MLP和FM的特征`，所有这里必须保证deep特征全部是embedding特征，并且embedding维度`全部一致`。这里后续会优化一下，对一些数值特征做优化，方便扩展。  
 对应算法论文[[click here]](https://arxiv.org/abs/1703.04247)   
+
+[`xDeepFM`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/model_brain.py#L965)的参数配置和deepFM类似，wide侧放线性特征，deep侧放的是`统一的MLP和CIN特征`，所有这里必须保证deep特征全部是embedding特征，并且embedding维度`全部一致`。  
+对应算法论文[[click here]](https://arxiv.org/pdf/1803.05170.pdf)  
     
 *后续利用空闲时间和节假日会持续添加新算法*
 
