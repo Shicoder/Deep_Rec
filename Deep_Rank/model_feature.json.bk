@@ -1,0 +1,73 @@
+{
+  "tensorTransform": [
+    {
+      "name": "CateColWithHashBucket",
+      "parameters": {
+        "input_tensor": "id",
+        "output_tensor": "id_hashbucket",
+        "hash_bucket_size": 100000,
+        "wide_or_deep" : "",
+        "dtype": "string"
+      }
+    },
+    {
+      "name": "CateColWithHashBucket",
+      "parameters": {
+        "input_tensor": "goods_id",
+        "output_tensor": "goods_id_hashbucket",
+        "hash_bucket_size": 10000000,
+        "wide_or_deep" : "",
+        "dtype": "string"
+      }
+    },
+     {
+      "name": "NumericColumn",
+      "parameters": {
+        "input_tensor": "pv",
+        "output_tensor": "pv_num",
+        "wide_or_deep" : "",
+        "dtype": "int"
+      }
+    },
+    {
+      "name": "BucketizedColumn",
+      "parameters": {
+        "input_tensor": "pv_num",
+        "output_tensor": "pv_bucket",
+        "wide_or_deep" : "deep",
+        "boundaries":[1,2,3],
+        "dtype": "int"
+      }
+    },
+     {
+      "name": "CateColWithVocabularyList",
+      "parameters": {
+        "input_tensor": "class",
+        "output_tensor": "class_voclist",
+        "wide_or_deep" : "",
+        "vocabulary_list":[0,1,2],
+        "dtype": "int"
+      }
+    },
+    {
+      "name": "SharedEmbeddingColumn",
+      "parameters": {
+        "input_tensor": ["col1","col2"],
+        "output_tensor": ["col1_sharedembedding","col2_sharedembedding"],
+        "dimension": 16,
+        "combiner":"sum",
+        "wide_or_deep": "deep"
+      }
+    },
+
+    {
+      "name": "IndicatorColumn",
+      "parameters": {
+        "input_tensor": "class_voclist",
+        "output_tensor": "class_indicator",
+        "wide_or_deep": "deep"
+      }
+    }
+
+  ]
+}
