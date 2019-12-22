@@ -10,10 +10,8 @@ from model_brain import BaseModel
 from alg_utils.utils_tf import VecAttGRUCell
 
 from tensorflow.python.ops.rnn_cell import GRUCell
-from tensorflow.python.ops.rnn_cell import LSTMCell
-from tensorflow.python.ops.rnn import bidirectional_dynamic_rnn as bi_rnn
 # from tensorflow.python.ops.rnn import dynamic_rnn
-from rnn import dynamic_rnn
+from Deep_Rank.model_brain.rnn import dynamic_rnn
 
 class DIEN(BaseModel):
     '''Deep Interest Evolution Network Model'''

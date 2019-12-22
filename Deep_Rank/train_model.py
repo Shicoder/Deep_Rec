@@ -9,7 +9,16 @@ import sys
 sys.path.append("..")
 import tensorflow as tf
 from alg_utils.utils_tf import load_json_from_file,get_input_schema_spec
-from model_brain import ESMM,DNN,DCN,DeepFM,DIN,DIEN,PNN,WD_Model,BST,DSSM,IRGAN,xDeepFM,export_model
+from model_brain.model_brain import export_model
+from Deep_Rank.model_brain.dcn import DCN
+from Deep_Rank.model_brain.dnn_demo import DNN
+from Deep_Rank.model_brain.deepFM import DeepFM
+from Deep_Rank.model_brain.dien import DIEN
+from Deep_Rank.model_brain.din import DIN
+from Deep_Rank.model_brain.dssm import DSSM
+from Deep_Rank.model_brain.esmm import ESMM
+from Deep_Rank.model_brain.wide_deep import WD_Model
+from Deep_Rank.model_brain.xDeepFM import xDeepFM
 '''nohup python model.py > log 2>&1 &'''
 import argparse
 parser = argparse.ArgumentParser()
@@ -68,7 +77,8 @@ def model_fn(features,
       model = xDeepFM(features, labels, params, mode)
   # 2
   elif model_name == 'pnn':
-      model = PNN(features, labels, params, mode)
+      # model = PNN(features, labels, params, mode)
+      pass
   # elif model_name == 'dssm':
   #     model = DSSM(features, labels, params, mode)
   # elif model_name == 'bilinear':
@@ -77,10 +87,12 @@ def model_fn(features,
   #     model = DSIN(features, labels, params, mode)
   # 3
   elif model_name == 'bst':
-      model = BST(features, labels, params, mode)
+      # model = BST(features, labels, params, mode)
+      pass
   # 4
   elif model_name == 'irgan':
-      model = IRGAN(features, labels, params, mode)
+      # model = IRGAN(features, labels, params, mode)
+      pass
   estimator_spec = model.build_estimator_spec
 
   return estimator_spec

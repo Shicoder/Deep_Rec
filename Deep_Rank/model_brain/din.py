@@ -6,7 +6,7 @@
 @Time: 2019/12/22 9:14 PM
 '''
 import tensorflow as tf
-from model_brain import BaseModel
+from Deep_Rank.model_brain import BaseModel
 
 class DIN(BaseModel):
     '''Deep Interest Network Model'''

@@ -10,7 +10,7 @@ sys.path.append("..")
 from tensorflow.python.ops import string_ops,array_ops,math_ops
 from tensorflow.python.saved_model import signature_constants
 from tensorflow.python.estimator.export import export_output
-from transform_feature import FeatureBuilder
+from Deep_Rank.transform_feature import FeatureBuilder
 from tensorflow.python.ops import init_ops
 from tensorflow.python.estimator.canned import head
 from tensorflow.python.ops.losses import losses

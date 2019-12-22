@@ -6,7 +6,7 @@
 @Time: 2019/12/22 9:07 PM
 '''
 import  tensorflow as tf
-from model_brain import  BaseModel
+from model_brain import BaseModel
 class DCN(BaseModel):
     '''Deep cross network'''
     def __init__(self, features, labels, params, mode):
