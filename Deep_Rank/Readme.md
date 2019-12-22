@@ -39,6 +39,7 @@
     "bucketized_column"  
     "shared_embedding_columns"  
     "crossed_column"  
+        "NumericColumnV2" (这个是修改的原始numeric_column，用来自适应学习缺失值，具体思路可以看源码)  
     配置格式：  
     {  
       "name": "IndicatorColumn",  
