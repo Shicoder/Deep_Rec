@@ -14,7 +14,13 @@ import logging
 import numpy as np
 import tensorflow as tf
 from tensorflow import feature_column as fc
+from tensorflow.python.feature_column import feature_column as _fc
+from tensorflow.python.ops import parsing_ops
+from tensorflow.python.ops import math_ops
+from tensorflow.python.framework import sparse_tensor as sparse_tensor_lib
+from tensorflow.python.framework import tensor_shape
 from abc import ABCMeta
+import collections
 # from model_fn import ABCMeta
 
 logger = logging.getLogger()
@@ -119,6 +125,91 @@ class NumericColumn(TensorTransform):
         print("NumericColumn output_tensor_name:",output_tensor_name)
         output_tensors[output_tensor_name] = output_tensor
 
+class _NumericColumnRobust(_fc._DenseColumn,
+                     collections.namedtuple('_NumericColumn', [
+                         'key', 'shape', 'default_value', 'dtype',
+                         'normalizer_fn'
+                     ])):
+  """see `numeric_column`."""
+
+  @property
+  def name(self):
+    return self.key
+
+  @property
+  def _parse_example_spec(self):
+    return {
+        self.key:
+            parsing_ops.FixedLenFeature(self.shape, self.dtype,
+                                        self.default_value)
+    }
+
+  def _transform_feature(self, inputs):
+    input_tensor = inputs.get(self.key)
+    if isinstance(input_tensor, sparse_tensor_lib.SparseTensor):
+      raise ValueError(
+          'The corresponding Tensor of numerical column must be a Tensor. '
+          'SparseTensor is not supported. key: {}'.format(self.key))
+    if self.normalizer_fn is not None:
+      input_tensor = self.normalizer_fn(input_tensor)
+    mask = tf.less_equal(input_tensor,self.default_value)
+    mask = tf.cast(mask,tf.int64)
+    _alpha = tf.get_variable(name=self.key+'_num_def',
+                             shape=self.shape,
+                             initializer=tf.constant_initializer(0.0),
+                             dtype=tf.float32,
+                             trainable = True)
+    return math_ops.to_float((1-mask))*math_ops.to_float(input_tensor) + math_ops.to_float(mask)*_alpha
+
+  @property
+  def _variable_shape(self):
+    return tensor_shape.TensorShape(self.shape)
+
+  def _get_dense_tensor(self, inputs, weight_collections=None, trainable=None):
+    """Returns dense `Tensor` representing numeric feature.
+
+    Args:
+      inputs: A `_LazyBuilder` object to access inputs.
+      weight_collections: Unused `weight_collections` since no variables are
+        created in this function.
+      trainable: Unused `trainable` bool since no variables are created in
+        this function.
+
+    Returns:
+      Dense `Tensor` created within `_transform_feature`.
+    """
+    # Do nothing with weight_collections and trainable since no variables are
+    # created in this function.
+    del weight_collections
+    del trainable
+    # Feature has been already transformed. Return the intermediate
+    # representation created by _transform_feature.
+    return inputs.get(self)
+
+class NumericColumnRobust(TensorTransform):
+    '''once input data less equal the default value,using new variable training default value.
+    '''
+    def __init__(self, name, parameters):
+        super(NumericColumnRobust, self).__init__(name, parameters)
+
+    def transform(self, output_tensors):
+        input_tensor_name = self.parameters.get("input_tensor")
+        output_tensor_name = self.parameters.get("output_tensor")
+        dtype = self.get_value_tf_type("dtype") if self.get_value_tf_type("dtype") != None else tf.float32
+        dv = self.get_default_value("dtype") if self.get_default_value("dtype") != None else 0.0
+        if self.parameters.has_key("default_value"):
+            default_value = self.parameters.get("default_value")
+        else:
+            default_value = dv
+        output_tensor = _NumericColumnRobust(
+            key = input_tensor_name,
+            shape=(1,),
+            default_value = default_value,
+            dtype = dtype,
+            normalizer_fn = None
+        )
+        print("NumericColumn output_tensor_name:",output_tensor_name)
+        output_tensors[output_tensor_name] = output_tensor
 
 class EmbeddingColumn(TensorTransform):
     def __init__(self, name, parameters):
@@ -313,6 +404,8 @@ class FeatureBuilder(object):
             tensor_transform = CateColWithHashBucket(name, parameters)
         elif name == "NumericColumn":
             tensor_transform = NumericColumn(name, parameters)
+        elif name == "NumericColumnV2":
+            tensor_transform = NumericColumnRobust(name, parameters)
         elif name == "EmbeddingColumn":
             tensor_transform = EmbeddingColumn(name, parameters)
         elif name == "SharedEmbeddingColumn":
