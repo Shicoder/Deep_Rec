@@ -6,13 +6,11 @@ Email   : xfu_shi@163.com
 '''
 import tensorflow as tf
 import sys
+from operator import mul
 sys.path.append("..")
 from tensorflow.python.saved_model import signature_constants
-from alg_utils.utils_tf import PReLU,get_input_schema_spec,dice
 import random
-import collections
 from model_brain import  BaseModel
-from abc import ABCMeta,abstractproperty
 
 CLASSES = 'classes'
 CLASS_IDS = 'class_ids'
@@ -31,9 +29,10 @@ class youtube_net(BaseModel):
         self.Shallow_Features, \
         self.Deep_Features = self._get_feature_embedding
         self.num_tasks = 2
+        self.tasks = ['ctr', 'cvr']
         with tf.variable_scope('Embedding_Module'):
             self.embedding_layer = self.get_input_layer(self.Deep_Features)
-        with tf.variable_scope('xDeepFM_Module'):
+        with tf.variable_scope('MMoE_Module'):
             self.logits = self._model_fn
 
 
@@ -61,7 +60,10 @@ class youtube_net(BaseModel):
 
         # g^{k}(x) = activation(W_{gk} * x + b), where activation is softmax according to the paper
         for index,gate_kernels in enumerate(gate_kernels):
-            gate_output = tf.tensordot(a = net ,b = gate_kernels)
+            print("net:",net.get_shape().as_list())
+            print("gate_kernels:", gate_kernels.get_shape().as_list())
+            gate_output = tf.tensordot(a = net ,b = gate_kernels,axes=1)
+            print("gate_output:",gate_output.get_shape().as_list())
             # user_fate_bias
             gate_output = tf.nn.softmax(gate_output)
             gate_outputs.append(gate_output)
@@ -85,7 +87,7 @@ class youtube_net(BaseModel):
         mmoe_layers = self.mmoe_net(self.embedding_layer,units=8,experts_num=2)
         for index ,task_layer in enumerate(mmoe_layers):
             tower_layer = tf.layers.dense(task_layer,units=5,activation='relu',kernel_initializer=tf.initializers.variance_scaling())
-            output_layer = tf.layers.dense(tower_layer,units=1,name='ctr',kernel_initializer=tf.initializers.variance_scaling())
+            output_layer = tf.layers.dense(tower_layer,units=1,name='logits_{}'.format(str(index)),kernel_initializer=tf.initializers.variance_scaling())
             logit = tf.sigmoid(tf.add(output_layer,self.shallow_tower_logit))
             output_layers.append(logit)
 
@@ -96,22 +98,23 @@ class youtube_net(BaseModel):
                     mode,
                     labels,
                     logits):
-
-
-
         probs = [tf.sigmoid(logit) for logit in logits]
         losses = []
-        for i in range(len(logits)):
-            losses.append(tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=labels[i], logits=probs[i])))
+        tmp = {}
+        for name,i in zip(self.tasks,range(len(logits))):
+            losses.append(tf.reduce_sum(tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.reshape(labels[name],shape=(-1,1)), logits=probs[i]))))
+            key = "{}_probabilities".format(name)
+            value = probs[i]
+            tmp[key] = value
 
-        # ctcvr_prob = tf.multiply(ctr_prob, cvr_prob, name="CTCVR")
+
 
         if mode == tf.estimator.ModeKeys.PREDICT:
             predictions = {
-                'probabilities': probs[0]*probs[1],
-                'ctr_probabilities': probs[0],
-                'cvr_probabilities': probs[1]
+                'probabilities': reduce(mul,probs)
             }
+            predictions.update(tmp)
+
             export_outputs = {
                 'prediction': tf.estimator.export.PredictOutput(predictions)
             }
@@ -119,18 +122,18 @@ class youtube_net(BaseModel):
 
         loss = tf.reduce_sum(losses)
 
-        ctr_accuracy = tf.metrics.accuracy(labels=labels[0],
-                                               predictions=tf.to_float(tf.greater_equal(probs[0], 0.5)))
-        cvr_accuracy = tf.metrics.accuracy(labels=labels[1],
-                                               predictions=tf.to_float(tf.greater_equal(probs[1], 0.5)))
-        ctr_auc = tf.metrics.auc(labels[0], probs[0])
-        cvr_auc = tf.metrics.auc(labels[1], probs[1])
-        metrics = {'cvr_accuracy': cvr_accuracy, 'ctr_accuracy': ctr_accuracy, 'ctr_auc': ctr_auc,
-                       'cvr_auc': cvr_auc}
-        tf.summary.scalar('ctr_accuracy', ctr_accuracy[1])
-        tf.summary.scalar('cvr_accuracy', cvr_accuracy[1])
-        tf.summary.scalar('ctr_auc', ctr_auc[1])
-        tf.summary.scalar('cvr_auc', cvr_auc[1])
+        metrics = {}
+        for name, i in zip(self.tasks, range(len(logits))):
+            accuracy = tf.metrics.accuracy(labels=labels[name],
+                                           predictions=tf.to_float(tf.greater_equal(probs[i], 0.5)))
+            auc = tf.metrics.auc(labels[name], probs[i])
+            key_accuracy = '{}_accuracy'.format(name)
+            key_auc = '{}_auc'.format(name)
+            metrics[key_accuracy] = accuracy
+            metrics[key_auc] = auc
+            tf.summary.scalar('{}_accuracy'.format(name), accuracy[1])
+            tf.summary.scalar('{}_auc'.format(name), auc[1])
+
 
         if mode == tf.estimator.ModeKeys.EVAL:
             return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)

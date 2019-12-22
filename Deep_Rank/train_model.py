@@ -19,6 +19,7 @@ from Deep_Rank.model_brain.dssm import DSSM
 from Deep_Rank.model_brain.esmm import ESMM
 from Deep_Rank.model_brain.wide_deep import WD_Model
 from Deep_Rank.model_brain.xDeepFM import xDeepFM
+from Deep_Rank.model_brain.youtube_net import youtube_net
 '''nohup python model.py > log 2>&1 &'''
 import argparse
 parser = argparse.ArgumentParser()
@@ -47,7 +48,7 @@ parser.add_argument(
 parser.add_argument(
     '--is_profile', type=bool, default=False, help='if true ,open profile')
 parser.add_argument(
-    '--model_name', type=str, default='xdeepfm',
+    '--model_name', type=str, default='youtube_net',
     help='model')
 
 def model_fn(features,
@@ -75,6 +76,8 @@ def model_fn(features,
       model = DSSM(features, labels, params, mode)
   elif model_name == 'xdeepfm':
       model = xDeepFM(features, labels, params, mode)
+  elif model_name == 'youtube_net':
+      model = youtube_net(features, labels, params, mode)
   # 2
   elif model_name == 'pnn':
       # model = PNN(features, labels, params, mode)
@@ -139,11 +142,11 @@ def input_fn(filenames,
 
 
 input_schema = load_json_from_file("./model_schema.json")["schema"]
-model_feature = load_json_from_file("./model_feature.json.deepfm")
+model_feature = load_json_from_file("./model_feature.json")
 def main(unused_argv):
 
     global use_esmm
-    if FLAGS.model_name == 'esmm':
+    if FLAGS.model_name == 'esmm' or FLAGS.model_name == 'youtube_net':
         use_esmm = True
     else:
         use_esmm = False
