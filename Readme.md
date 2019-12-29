@@ -93,7 +93,7 @@
 [`DSSM`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/dssm.py)需要在wide和deep侧分别放置user info和item info。  
 对应算法论文[[click here]](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/02/cikm2013_DSSM_fullversion.pdf)   
 
-[`youtube_net`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/dssm.py)本文是youtube提出的排序模型，不知道叫啥，所以直接叫youtube_net了。  
+[`youtube_net`](https://github.com/Shicoder/Deep_Rec/blob/master/Deep_Rank/dssm.py)本文是youtube提出的排序模型 "Recommending What Video to Watch Next: A Multitask Ranking System"，不知道叫啥，所以直接叫youtube_net了。  
 对应算法论文[[click here]](https://dl.acm.org/citation.cfm?id=3346997)    
     
 *后续利用空闲时间和节假日会持续添加新算法*

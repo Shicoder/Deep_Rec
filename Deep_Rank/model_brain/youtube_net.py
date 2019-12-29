@@ -23,6 +23,7 @@ _REGRESS_SERVING_KEY = 'regression'
 class youtube_net(BaseModel):
     '''
     youtube 出的排序模型
+    "Recommending What Video to Watch Next: A Multitask Ranking System"
     '''
     def __init__(self, features, labels, params, mode):
         super(youtube_net,self).__init__(features, labels, params, mode)
