@@ -89,7 +89,8 @@ class youtube_net(BaseModel):
         for index ,task_layer in enumerate(mmoe_layers):
             tower_layer = tf.layers.dense(task_layer,units=5,activation='relu',kernel_initializer=tf.initializers.variance_scaling())
             output_layer = tf.layers.dense(tower_layer,units=1,name='logits_{}'.format(str(index)),kernel_initializer=tf.initializers.variance_scaling())
-            logit = tf.sigmoid(tf.add(output_layer,self.shallow_tower_logit))
+            # logit = tf.sigmoid(tf.add(output_layer,self.shallow_tower_logit))
+            logit = tf.add(output_layer, self.shallow_tower_logit)
             output_layers.append(logit)
 
         return output_layers
@@ -103,7 +104,7 @@ class youtube_net(BaseModel):
         losses = []
         tmp = {}
         for name,i in zip(self.tasks,range(len(logits))):
-            losses.append(tf.reduce_sum(tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.reshape(labels[name],shape=(-1,1)), logits=probs[i]))))
+            losses.append(tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=tf.reshape(labels[name],shape=(-1,1)), logits=logits[i])))
             key = "{}_probabilities".format(name)
             value = probs[i]
             tmp[key] = value
