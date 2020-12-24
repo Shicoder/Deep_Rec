@@ -165,7 +165,7 @@ class BaseModel(object):
                 with ops.control_dependencies([assert_dimension]):
                     return tf.identity(logits, name=scope)
 
-    def attention_layer(self, seq_ids, tid, bucket_size, embedding_size, attention_hidden_units, id_type):
+    def attention_layer(self, seq_ids, tid, bucket_size, embedding_size, attention_hidden_units, id_type,masks):
         '''attention 结构，seq_ids是序列id，tid是目标id'''
         with tf.variable_scope("attention_" + id_type):
             embeddings = self.embedding_table(bucket_size, embedding_size, id_type)
@@ -184,7 +184,6 @@ class BaseModel(object):
             att_wgt = tf.reshape(att_wgt, shape=[-1, max_seq_len, 1], name="weight")
             wgt_emb = tf.multiply(seq_emb, att_wgt)  # shape(batch_size, max_seq_len, embedding_size)
             # masks = tf.sequence_mask(seq_len, max_seq_len, dtype=tf.float32)
-            masks = tf.expand_dims(tf.cast(seq_ids >= 0, tf.float32), axis=-1)
             att_emb = tf.reduce_sum(tf.multiply(wgt_emb, masks), 1, name="weighted_embedding")
             return att_emb, tid_emb
 

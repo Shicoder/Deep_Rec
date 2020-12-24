@@ -33,11 +33,12 @@ class DIN(BaseModel):
         # feature_columns not include attention feature
         din_user_seq = tf.string_to_hash_bucket_fast(self.din_user_goods_seq,self.goods_bucket_size)
         din_target_id = tf.string_to_hash_bucket_fast(self.din_target_goods_id,self.goods_bucket_size)
+        masks = tf.expand_dims(tf.cast(din_user_seq >= 0, tf.float32), axis=-1)
         din_useq_embedding, din_tid_embedding = self.attention_layer(din_user_seq, din_target_id,
                                                                      self.goods_bucket_size,
                                                                      self.goods_embedding_size,
                                                                      self.goods_attention_hidden_units,
-                                                                     id_type="click_seq")
+                                                                     id_type="click_seq",masks=masks)
         din_net = tf.concat([self.common_layer, din_useq_embedding, din_tid_embedding], axis=1)
         logits = self.fc_net(din_net,1)
         return logits
